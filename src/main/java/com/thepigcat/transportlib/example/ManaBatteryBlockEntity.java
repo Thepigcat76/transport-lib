@@ -21,11 +21,13 @@ public class ManaBatteryBlockEntity extends BlockEntity {
     public void fillMana(int mana) {
         this.manaStored += mana;
         setChanged();
+        level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), 3);
     }
 
     public void drainMana(int mana) {
         this.manaStored -= mana;
         setChanged();
+        level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), 3);
     }
 
     @Override
@@ -50,6 +52,5 @@ public class ManaBatteryBlockEntity extends BlockEntity {
     public @NotNull CompoundTag getUpdateTag(HolderLookup.Provider provider) {
         return saveWithoutMetadata(provider);
     }
-
 
 }

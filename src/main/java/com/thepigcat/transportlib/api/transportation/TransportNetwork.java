@@ -4,7 +4,7 @@ import com.mojang.serialization.Codec;
 import com.thepigcat.transportlib.TransportLib;
 import com.thepigcat.transportlib.api.transportation.cache.NetworkRoute;
 import com.thepigcat.transportlib.api.transportation.cache.RouteCache;
-import com.thepigcat.transportlib.data.IRServerRouteCache;
+import com.thepigcat.transportlib.data.TLServerRouteCache;
 import com.thepigcat.transportlib.data.NodeNetworkData;
 import com.thepigcat.transportlib.data.NodeNetworkSavedData;
 import com.thepigcat.transportlib.networking.AddInteractorPayload;
@@ -206,7 +206,7 @@ public class TransportNetwork<T> {
     }
 
     public RouteCache<T> getRouteCache(ServerLevel serverLevel) {
-        return IRServerRouteCache.getCache(this, serverLevel);
+        return TLServerRouteCache.getCache(this, serverLevel);
     }
 
     public void setServerNodesChanged(ServerLevel serverLevel) {
@@ -330,7 +330,7 @@ public class TransportNetwork<T> {
     }
 
     private List<NetworkRoute<T>> getCacheRoutes(ServerLevel serverLevel, BlockPos pos) {
-        return IRServerRouteCache.getRoutes(this, serverLevel, pos);
+        return TLServerRouteCache.getRoutes(this, serverLevel, pos);
     }
 
     // OPTIMIZING ROUTES

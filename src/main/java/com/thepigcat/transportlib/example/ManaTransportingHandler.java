@@ -28,6 +28,7 @@ public class ManaTransportingHandler implements TransportingHandler<Integer> {
 
     @Override
     public List<Integer> split(Integer value, int amount) {
+        // TODO: Only split for interactors we can actually interact with
         return splitNumberEvenly(value, amount);
     }
 
@@ -50,7 +51,7 @@ public class ManaTransportingHandler implements TransportingHandler<Integer> {
     public Integer receive(ServerLevel level, BlockPos interactorPos, Direction direction, Integer value) {
         BlockEntity blockEntity = level.getBlockEntity(interactorPos);
 
-        if (blockEntity instanceof ManaBatteryBlockEntity manaBlockEntity) {
+        if (blockEntity instanceof ManaBatteryBlockEntity manaBlockEntity && manaBlockEntity.getBlockState().getValue(ManaBatteryBlock.BATTERY_TYPE) == ManaBatteryBlock.BatteryType.INPUT  ) {
             manaBlockEntity.fillMana(value);
             return this.defaultValue();
         }

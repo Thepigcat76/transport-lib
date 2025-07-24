@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 // SERVER ONLY
-public final class IRServerRouteCache {
+public final class TLServerRouteCache {
     // Possibly we might have to save the base data for calculating caches on server startup to reduce lag
     public static final Map<TransportNetwork<?>, Map<ResourceKey<Level>, RouteCache<?>>> CACHE = new HashMap<>();
 

@@ -43,4 +43,5 @@ public record AddNextNodePayload(TransportNetwork<?> network, BlockPos nodePos, 
             return null;
         });
     }
+
 }

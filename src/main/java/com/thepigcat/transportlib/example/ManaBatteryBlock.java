@@ -2,14 +2,17 @@ package com.thepigcat.transportlib.example;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -21,6 +24,8 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class ManaBatteryBlock extends BaseEntityBlock {
     public static final EnumProperty<BatteryType> BATTERY_TYPE = EnumProperty.create("battery_type", BatteryType.class);
@@ -72,6 +77,16 @@ public class ManaBatteryBlock extends BaseEntityBlock {
     @Override
     public @Nullable BlockEntity newBlockEntity(BlockPos blockPos, BlockState blockState) {
         return new ManaBatteryBlockEntity(blockPos, blockState);
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+        super.appendHoverText(stack, context, tooltipComponents, tooltipFlag);
+
+        tooltipComponents.add(Component.literal("Right-click with:"));
+        tooltipComponents.add(Component.literal("  Stick - Increase mana by 100"));
+        tooltipComponents.add(Component.literal("  Diamond - Send mana to mana batteries"));
+        tooltipComponents.add(Component.literal("  Empty Hand - Change i/o interaction"));
     }
 
     public enum BatteryType implements StringRepresentable {
