@@ -12,6 +12,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
+import java.util.HashMap;
+
 public record AddNextNodePayload(TransportNetwork<?> network, BlockPos nodePos, Direction direction,
                                  BlockPos nextPos) implements CustomPacketPayload {
     public static final Type<AddNextNodePayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TransportLib.MODID, "add_next_node"));
@@ -34,7 +36,7 @@ public record AddNextNodePayload(TransportNetwork<?> network, BlockPos nodePos, 
 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
-            NetworkNode<?> networkNode = ClientNodes.NODES.get(network).get(nextPos);
+            NetworkNode<?> networkNode = ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).get(nextPos);
             ClientNodes.NODES.get(network).get(nodePos).addNext(direction, networkNode);
         }).exceptionally(err -> {
             TransportLib.LOGGER.error("Failed to handle AddNextNodePayload");

@@ -12,6 +12,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
+import java.util.HashMap;
+
 public record AddNetworkNodePayload<T>(TransportNetwork<T> network, BlockPos pos,
                                        NetworkNode<T> node) implements CustomPacketPayload {
     private static <T> AddNetworkNodePayload<T> untyped(TransportNetwork<?> network, BlockPos pos, NetworkNode<?> tNetworkNode) {
@@ -26,9 +28,9 @@ public record AddNetworkNodePayload<T>(TransportNetwork<T> network, BlockPos pos
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
             if (node.uninitialized()) {
-                node.initialize(ClientNodes.NODES.get(network));
+                node.initialize(ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()));
             }
-            ClientNodes.NODES.get(network).put(pos, node);
+            ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).put(pos, node);
         }).exceptionally(err -> {
             TransportLib.LOGGER.error("Failed to handle add network node payload", err);
             return null;

@@ -7,24 +7,25 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class ManaBlockEntity extends BlockEntity {
+public class ManaBatteryBlockEntity extends BlockEntity {
     public int manaStored;
 
-    public ManaBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
-        super(type, pos, blockState);
+    public ManaBatteryBlockEntity(BlockPos pos, BlockState blockState) {
+        super(ExampleBlockEntityRegistry.MANA_BATTERY.get(), pos, blockState);
     }
 
     public void fillMana(int mana) {
         this.manaStored += mana;
+        setChanged();
     }
 
     public void drainMana(int mana) {
         this.manaStored -= mana;
+        setChanged();
     }
 
     @Override

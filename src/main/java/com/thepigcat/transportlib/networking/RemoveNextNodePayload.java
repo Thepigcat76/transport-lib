@@ -13,6 +13,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
+
 public record RemoveNextNodePayload(TransportNetwork<?> network, BlockPos nodePos,
                                     Direction direction) implements CustomPacketPayload {
     public static final Type<RemoveNextNodePayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TransportLib.MODID, "remove_next_node"));
@@ -33,7 +35,7 @@ public record RemoveNextNodePayload(TransportNetwork<?> network, BlockPos nodePo
 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
-            NetworkNode<?> networkNode = ClientNodes.NODES.get(network).get(nodePos);
+            NetworkNode<?> networkNode = ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).get(nodePos);
             if (networkNode != null) {
                 networkNode.removeNext(direction);
             }

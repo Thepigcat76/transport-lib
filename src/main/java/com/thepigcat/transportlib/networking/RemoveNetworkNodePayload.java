@@ -11,6 +11,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
+import java.util.HashMap;
+
 public record RemoveNetworkNodePayload<T>(TransportNetwork<T> network, BlockPos pos) implements CustomPacketPayload {
     private static <T> RemoveNetworkNodePayload<T> untyped(TransportNetwork<?> network, BlockPos pos) {
         return new RemoveNetworkNodePayload<>((TransportNetwork<T>) network, pos);
@@ -23,7 +25,7 @@ public record RemoveNetworkNodePayload<T>(TransportNetwork<T> network, BlockPos 
 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
-            ClientNodes.NODES.get(network).remove(pos);
+            ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).remove(pos);
         }).exceptionally(err -> {
             TransportLib.LOGGER.error("Failed to handle remove network node payload", err);
             return null;

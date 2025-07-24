@@ -8,7 +8,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class ManaTransportingHandler implements TransportingHandler<Integer> {
@@ -51,7 +50,7 @@ public class ManaTransportingHandler implements TransportingHandler<Integer> {
     public Integer receive(ServerLevel level, BlockPos interactorPos, Direction direction, Integer value) {
         BlockEntity blockEntity = level.getBlockEntity(interactorPos);
 
-        if (blockEntity instanceof ManaBlockEntity manaBlockEntity) {
+        if (blockEntity instanceof ManaBatteryBlockEntity manaBlockEntity) {
             manaBlockEntity.fillMana(value);
             return this.defaultValue();
         }

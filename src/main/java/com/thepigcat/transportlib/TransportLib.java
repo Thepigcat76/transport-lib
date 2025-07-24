@@ -2,6 +2,10 @@ package com.thepigcat.transportlib;
 
 import com.mojang.logging.LogUtils;
 import com.thepigcat.transportlib.api.transportation.TransportNetwork;
+import com.thepigcat.transportlib.client.transportation.debug.TransportNetworkRenderer;
+import com.thepigcat.transportlib.example.ExampleBlockEntityRegistry;
+import com.thepigcat.transportlib.example.ExampleBlockRegistry;
+import com.thepigcat.transportlib.example.ExampleItemRegistry;
 import com.thepigcat.transportlib.example.ExampleNetworkRegistry;
 import com.thepigcat.transportlib.networking.*;
 import net.minecraft.SharedConstants;
@@ -11,8 +15,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.neoforged.neoforge.registries.NewRegistryEvent;
 import net.neoforged.neoforge.registries.RegistryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,10 +31,20 @@ public final class TransportLib {
 
     public TransportLib(IEventBus modEventbus, ModContainer modContainer) {
         modEventbus.addListener(this::registerPayloads);
+        modEventbus.addListener(this::registerRegistry);
 
         if (SharedConstants.IS_RUNNING_IN_IDE) {
             ExampleNetworkRegistry.NETWORKS.register(modEventbus);
+            ExampleBlockRegistry.BLOCKS.register(modEventbus);
+            ExampleItemRegistry.ITEMS.register(modEventbus);
+            ExampleBlockEntityRegistry.BLOCK_ENTITIES.register(modEventbus);
+
+            NeoForge.EVENT_BUS.addListener(TransportNetworkRenderer::renderNetworkNodes);
         }
+    }
+
+    private void registerRegistry(NewRegistryEvent event) {
+        event.register(NETWORK_REGISTRY);
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {

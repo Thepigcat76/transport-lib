@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "battery_type=input": {
+      "model": "transport_lib:block/mana_battery_in"
+    },
+    "battery_type=output": {
+      "model": "transport_lib:block/mana_battery_out"
+    },
+    "battery_type=none": {
+      "model": "transport_lib:block/mana_battery_none"
+    }
+  }
+}
