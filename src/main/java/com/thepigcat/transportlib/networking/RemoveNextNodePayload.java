@@ -1,9 +1,9 @@
 package com.thepigcat.transportlib.networking;
 
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.transportation.NetworkNode;
-import com.thepigcat.transportlib.api.transportation.TransportNetwork;
-import com.thepigcat.transportlib.client.transportation.ClientNodes;
+import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.client.ClientNodes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -15,11 +15,11 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 
-public record RemoveNextNodePayload(TransportNetwork<?> network, BlockPos nodePos,
+public record RemoveNextNodePayload(TransportNetworkImpl<?> network, BlockPos nodePos,
                                     Direction direction) implements CustomPacketPayload {
     public static final Type<RemoveNextNodePayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TransportLib.MODID, "remove_next_node"));
     public static final StreamCodec<RegistryFriendlyByteBuf, RemoveNextNodePayload> STREAM_CODEC = StreamCodec.composite(
-            TransportNetwork.STREAM_CODEC,
+            TransportNetworkImpl.STREAM_CODEC,
             RemoveNextNodePayload::network,
             BlockPos.STREAM_CODEC,
             RemoveNextNodePayload::nodePos,
@@ -35,7 +35,7 @@ public record RemoveNextNodePayload(TransportNetwork<?> network, BlockPos nodePo
 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
-            NetworkNode<?> networkNode = ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).get(nodePos);
+            NetworkNodeImpl<?> networkNode = ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).get(nodePos);
             if (networkNode != null) {
                 networkNode.removeNext(direction);
             }

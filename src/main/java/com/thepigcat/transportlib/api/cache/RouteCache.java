@@ -1,9 +1,9 @@
-package com.thepigcat.transportlib.api.transportation.cache;
+package com.thepigcat.transportlib.api.cache;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.thepigcat.transportlib.TransportLibUtils;
-import com.thepigcat.transportlib.api.transportation.TransportNetwork;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
 import net.minecraft.core.BlockPos;
 
 import java.util.HashMap;
@@ -16,7 +16,7 @@ public record RouteCache<T>(Map<BlockPos, List<NetworkRoute<T>>> routes) {
         this(new HashMap<>());
     }
 
-    public static <T> Codec<RouteCache<T>> codec(TransportNetwork<T> network) {
+    public static <T> Codec<RouteCache<T>> codec(TransportNetworkImpl<T> network) {
         return RecordCodecBuilder.create(inst -> inst.group(
                 Codec.unboundedMap(Codec.STRING, NetworkRoute.codec(network).listOf()).fieldOf("routes").forGetter(cache -> TransportLibUtils.encodePosMap(cache.routes))
         ).apply(inst, routes -> new RouteCache<>(TransportLibUtils.decodePosMap(routes))));

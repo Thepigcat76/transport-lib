@@ -1,13 +1,14 @@
-package com.thepigcat.transportlib.client.transportation.debug;
+package com.thepigcat.transportlib.client.debug;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.transportation.NetworkNode;
-import com.thepigcat.transportlib.api.transportation.TransportNetwork;
-import com.thepigcat.transportlib.client.transportation.ClientNodes;
-import com.thepigcat.transportlib.client.transportation.TLRenderTypes;
+import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.api.TransportNetwork;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.client.ClientNodes;
+import com.thepigcat.transportlib.client.TLRenderTypes;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.debug.DebugRenderer;
 import net.minecraft.core.BlockPos;
@@ -20,7 +21,7 @@ import java.util.Collections;
 import java.util.Map;
 
 public final class TransportNetworkRenderer {
-    public static NetworkNode<?> selectedNode;
+    public static NetworkNodeImpl<?> selectedNode;
 
     public static void renderNetworkNodes(RenderLevelStageEvent event) {
         Vec3 cameraPos = event.getCamera().getPosition();
@@ -29,7 +30,7 @@ public final class TransportNetworkRenderer {
 
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
             for (TransportNetwork<?> network : TransportLib.NETWORK_REGISTRY) {
-                for (NetworkNode<?> node : ClientNodes.NODES.getOrDefault(network, Collections.emptyMap()).values()) {
+                for (NetworkNodeImpl<?> node : ClientNodes.NODES.getOrDefault(network, Collections.emptyMap()).values()) {
                     render(node, poseStack, bufferSource, cameraPos);
                 }
 
@@ -64,7 +65,7 @@ public final class TransportNetworkRenderer {
         RenderSystem.enableCull();
     }
 
-    private static void render(NetworkNode<?> node, PoseStack poseStack, MultiBufferSource bufferSource, Vec3 cameraPos) {
+    private static void render(NetworkNodeImpl<?> node, PoseStack poseStack, MultiBufferSource bufferSource, Vec3 cameraPos) {
         RenderSystem.disableDepthTest();    // Don't test depth
         RenderSystem.depthMask(false); // Don't write to depth buffer
         RenderSystem.disableCull();
@@ -82,16 +83,18 @@ public final class TransportNetworkRenderer {
             } else if (node.isDead()) {
                 r = 255;
                 g = 0;
-            } else if (node.getInteractorConnection() != null) {
+            } else if (!node.getInteractorConnections().isEmpty()) {
                 r = 255;
                 g = 0;
                 b = 255;
             }
 
-            if (node.getInteractorConnection() == null) {
+            if (node.getInteractorConnections().isEmpty()) {
                 renderCube(consumer, poseStack.last().pose(), r, g, b, 70);
             } else {
-                renderLine(poseStack, node.getInteractorConnection(), consumer, r, g, b, 70);
+                for (Direction connection : node.getInteractorConnections()) {
+                    renderLine(poseStack, connection, consumer, r, g, b, 70);
+                }
             }
 
             VertexConsumer consumer2 = bufferSource.getBuffer(TLRenderTypes.TEST_RENDER_TYPE);
@@ -109,7 +112,7 @@ public final class TransportNetworkRenderer {
 
         if (node == selectedNode) {
             if (node.getNext() != null) {
-                for (Map.Entry<Direction, ? extends NetworkNode<?>> entry : node.getNext().entrySet()) {
+                for (Map.Entry<Direction, ? extends NetworkNodeImpl<?>> entry : node.getNext().entrySet()) {
                     if (entry.getValue() != null) {
                         BlockPos pos = entry.getValue().getPos();
                         poseStack.pushPose();
@@ -125,7 +128,7 @@ public final class TransportNetworkRenderer {
 
         int i = 0;
         if (node.getNext() != null) {
-            for (Map.Entry<Direction, ? extends NetworkNode<?>> entry : node.getNext().entrySet()) {
+            for (Map.Entry<Direction, ? extends NetworkNodeImpl<?>> entry : node.getNext().entrySet()) {
                 Direction direction = entry.getKey();
                 poseStack.pushPose();
                 {

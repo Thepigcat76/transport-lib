@@ -1,6 +1,6 @@
 package com.thepigcat.transportlib.example;
 
-import com.thepigcat.transportlib.api.transportation.TransportingHandler;
+import com.thepigcat.transportlib.api.TransportingHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;

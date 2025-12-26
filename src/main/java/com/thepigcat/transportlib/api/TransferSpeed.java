@@ -1,4 +1,4 @@
-package com.thepigcat.transportlib.api.transportation;
+package com.thepigcat.transportlib.api;
 
 public interface TransferSpeed {
     static TransferSpeed speed(float speed) {

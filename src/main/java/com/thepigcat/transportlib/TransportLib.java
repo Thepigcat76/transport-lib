@@ -1,10 +1,11 @@
 package com.thepigcat.transportlib;
 
 import com.mojang.logging.LogUtils;
-import com.thepigcat.transportlib.api.transportation.NetworkNode;
-import com.thepigcat.transportlib.api.transportation.TransportNetwork;
-import com.thepigcat.transportlib.client.transportation.debug.TransportNetworkRenderer;
-import com.thepigcat.transportlib.data.TLServerRouteCache;
+import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.api.TransportNetwork;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.client.debug.TransportNetworkRenderer;
+import com.thepigcat.transportlib.impl.data.TLServerRouteCache;
 import com.thepigcat.transportlib.example.ExampleBlockEntityRegistry;
 import com.thepigcat.transportlib.example.ExampleBlockRegistry;
 import com.thepigcat.transportlib.example.ExampleItemRegistry;
@@ -36,7 +37,7 @@ import java.util.Map;
 @Mod(TransportLib.MODID)
 public final class TransportLib {
     public static final String MODID = "transport_lib";
-    public static final Registry<TransportNetwork<?>> NETWORK_REGISTRY = new RegistryBuilder<TransportNetwork<?>>(ResourceKey.createRegistryKey(ResourceLocation.fromNamespaceAndPath(MODID, "network"))).create();
+    public static final Registry<TransportNetwork<?>> NETWORK_REGISTRY = new RegistryBuilder<TransportNetwork<?>>(ResourceKey.createRegistryKey(rl("network"))).create();
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public TransportLib(IEventBus modEventbus, ModContainer modContainer) {
@@ -58,6 +59,10 @@ public final class TransportLib {
 
     }
 
+    public static ResourceLocation rl(String path) {
+        return ResourceLocation.fromNamespaceAndPath(MODID, path);
+    }
+
     private void registerRegistry(NewRegistryEvent event) {
         event.register(NETWORK_REGISTRY);
     }
@@ -77,6 +82,7 @@ public final class TransportLib {
         registrar.playToClient(AddInteractorPayload.TYPE, AddInteractorPayload.STREAM_CODEC, AddInteractorPayload::handle);
         registrar.playToClient(RemoveInteractorPayload.TYPE, RemoveInteractorPayload.STREAM_CODEC, RemoveInteractorPayload::handle);
         registrar.playToClient(SyncInteractorPayload.TYPE, SyncInteractorPayload.STREAM_CODEC, SyncInteractorPayload::handle);
+        registrar.playToClient(SetNodeValuePayload.TYPE, SetNodeValuePayload.STREAM_CODEC, SetNodeValuePayload::handle);
     }
 
     private void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -97,8 +103,8 @@ public final class TransportLib {
         TLServerRouteCache.CACHE.clear();
     }
 
-    private <T> void sendSyncPayload(TransportNetwork<T> network, ServerPlayer serverPlayer) {
-        Map<BlockPos, NetworkNode<T>> serverNodes = network.getServerNodes(serverPlayer.serverLevel());
+    private <T> void sendSyncPayload(TransportNetworkImpl<T> network, ServerPlayer serverPlayer) {
+        Map<BlockPos, NetworkNodeImpl<T>> serverNodes = network.getServerNodes(serverPlayer.serverLevel());
         PacketDistributor.sendToPlayer(serverPlayer, new SyncNetworkNodePayload<>(network, new HashMap<>(serverNodes)));
         PacketDistributor.sendToPlayer(serverPlayer, new SyncNextNodePayload(network));
     }

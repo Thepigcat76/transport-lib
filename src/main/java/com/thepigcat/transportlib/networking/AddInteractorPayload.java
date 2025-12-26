@@ -1,8 +1,8 @@
 package com.thepigcat.transportlib.networking;
 
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.transportation.TransportNetwork;
-import com.thepigcat.transportlib.client.transportation.ClientNodes;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.client.ClientNodes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -12,10 +12,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.HashSet;
 
-public record AddInteractorPayload(TransportNetwork<?> network, BlockPos interactorPos) implements CustomPacketPayload {
+public record AddInteractorPayload(TransportNetworkImpl<?> network, BlockPos interactorPos) implements CustomPacketPayload {
     public static final Type<AddInteractorPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TransportLib.MODID, "add_interactor"));
     public static final StreamCodec<? super RegistryFriendlyByteBuf, AddInteractorPayload> STREAM_CODEC = StreamCodec.composite(
-            TransportNetwork.STREAM_CODEC,
+            TransportNetworkImpl.STREAM_CODEC,
             AddInteractorPayload::network,
             BlockPos.STREAM_CODEC,
             AddInteractorPayload::interactorPos,

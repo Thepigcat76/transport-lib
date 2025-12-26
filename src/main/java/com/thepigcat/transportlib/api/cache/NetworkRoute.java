@@ -1,9 +1,9 @@
-package com.thepigcat.transportlib.api.transportation.cache;
+package com.thepigcat.transportlib.api.cache;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.thepigcat.transportlib.api.transportation.NetworkNode;
-import com.thepigcat.transportlib.api.transportation.TransportNetwork;
+import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
@@ -11,24 +11,24 @@ import java.util.*;
 
 public class NetworkRoute<T> {
     private final BlockPos originPos;
-    private final Set<NetworkNode<T>> path;
+    private final Set<NetworkNodeImpl<T>> path;
     private BlockPos interactorDest;
     private Direction interactorDirection;
     private int physicalDistance;
     private boolean valid;
 
-    public NetworkRoute(BlockPos originPos, Set<NetworkNode<T>> path) {
+    public NetworkRoute(BlockPos originPos, Set<NetworkNodeImpl<T>> path) {
         this.originPos = originPos;
         this.path = path;
     }
 
-    public static <T> Codec<NetworkRoute<T>> codec(TransportNetwork<T> network) {
+    public static <T> Codec<NetworkRoute<T>> codec(TransportNetworkImpl<T> network) {
         return RecordCodecBuilder.create(inst -> inst.group(
                 BlockPos.CODEC.fieldOf("origin_pos").forGetter(NetworkRoute::getOriginPos),
                 BlockPos.CODEC.fieldOf("interactor_dest").forGetter(NetworkRoute::getInteractorDest),
                 Direction.CODEC.fieldOf("interactor_dir").forGetter(NetworkRoute::getInteractorDirection),
                 Codec.INT.fieldOf("physical_distance").forGetter(NetworkRoute::getPhysicalDistance),
-                NetworkNode.codec(network).listOf().fieldOf("path").forGetter(route -> route.path.stream().toList())
+                NetworkNodeImpl.codec(network).listOf().fieldOf("path").forGetter(route -> route.path.stream().toList())
         ).apply(inst, NetworkRoute::codecNew));
     }
 
@@ -64,7 +64,7 @@ public class NetworkRoute<T> {
         return interactorDest;
     }
 
-    public Set<NetworkNode<T>> getPath() {
+    public Set<NetworkNodeImpl<T>> getPath() {
         return path;
     }
 
@@ -95,7 +95,7 @@ public class NetworkRoute<T> {
                 "path=" + path + ']';
     }
 
-    private static <T> NetworkRoute<T> codecNew(BlockPos originPos, BlockPos interactorDest, Direction interactorDirection, int physicalDistance, List<NetworkNode<T>> path) {
+    private static <T> NetworkRoute<T> codecNew(BlockPos originPos, BlockPos interactorDest, Direction interactorDirection, int physicalDistance, List<NetworkNodeImpl<T>> path) {
         NetworkRoute<T> route = new NetworkRoute<>(originPos, new LinkedHashSet<>(path));
         route.interactorDest = interactorDest;
         route.physicalDistance = physicalDistance;

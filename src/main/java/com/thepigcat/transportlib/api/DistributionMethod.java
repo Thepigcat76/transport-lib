@@ -1,4 +1,4 @@
-package com.thepigcat.transportlib.api.transportation;
+package com.thepigcat.transportlib.api;
 
 // TODO: implement this
 public enum DistributionMethod {

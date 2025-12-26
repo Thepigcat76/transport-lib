@@ -1,8 +1,10 @@
-package com.thepigcat.transportlib.api.transportation;
+package com.thepigcat.transportlib.api;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.thepigcat.transportlib.api.transportation.cache.NetworkRoute;
+import com.thepigcat.transportlib.api.cache.NetworkRoute;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.impl.TransportingImpl;
 import com.thepigcat.transportlib.networking.AddNextNodePayload;
 import com.thepigcat.transportlib.networking.RemoveNextNodePayload;
 import net.minecraft.core.BlockPos;
@@ -18,35 +20,35 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-public class NetworkNode<T> {
+public class NetworkNodeImpl<T> {
     private final TransportNetwork<T> network;
     private final BlockPos pos;
-    private Map<Direction, NetworkNode<T>> next;
+    private Map<Direction, NetworkNodeImpl<T>> next;
     private Map<Direction, BlockPos> uninitializedNext;
-    private final Transporting<T> transporting;
+    private final TransportingImpl<T> transporting;
     private boolean dead;
-    private Optional<Direction> interactorConnection;
+    private Set<Direction> interactorConnection;
 
-    public NetworkNode(TransportNetwork<T> network, BlockPos pos) {
+    public NetworkNodeImpl(TransportNetwork<T> network, BlockPos pos) {
         this.network = network;
         this.pos = pos;
         this.next = new ConcurrentHashMap<>();
-        this.transporting = new Transporting<>(network);
+        this.transporting = new TransportingImpl<>(network);
     }
 
-    public NetworkNode(TransportNetwork<?> network, BlockPos pos, Map<Direction, BlockPos> next, Transporting<T> transporting, boolean dead, Optional<Direction> interactorConnection) {
+    public NetworkNodeImpl(TransportNetwork<?> network, BlockPos pos, Map<Direction, BlockPos> next, TransportingImpl<T> transporting, boolean dead, Collection<Direction> interactorConnections) {
         this.network = (TransportNetwork<T>) network;
         this.pos = pos;
         this.uninitializedNext = next;
         this.transporting = transporting;
         this.dead = dead;
-        this.interactorConnection = interactorConnection;
+        this.interactorConnection = new HashSet<>(interactorConnections);
     }
 
-    public void initialize(Map<BlockPos, ? extends NetworkNode<?>> nodes) {
+    public void initialize(Map<BlockPos, ? extends NetworkNodeImpl<?>> nodes) {
         this.next = new ConcurrentHashMap<>();
         for (Map.Entry<Direction, BlockPos> entry : this.uninitializedNext.entrySet()) {
-            this.next.put(entry.getKey(), (NetworkNode<T>) nodes.get(entry.getValue()));
+            this.next.put(entry.getKey(), (NetworkNodeImpl<T>) nodes.get(entry.getValue()));
         }
         this.uninitializedNext = null;
     }
@@ -63,7 +65,7 @@ public class NetworkNode<T> {
         this.next.remove(direction);
     }
 
-    public void addNextNodeSynced(Direction direction, NetworkNode<T> nextNode) {
+    public void addNextNodeSynced(Direction direction, NetworkNodeImpl<T> nextNode) {
         this.next.put(direction, nextNode);
         if (this.network.isSynced()) {
             PacketDistributor.sendToAllPlayers(new AddNextNodePayload(this.network, this.pos, direction, nextNode.getPos()));
@@ -77,37 +79,37 @@ public class NetworkNode<T> {
         }
     }
 
-    public void onNextNodeAdded(NetworkNode<T> originNode, Direction originNodeDirection) {
+    public void onNextNodeAdded(NetworkNodeImpl<T> originNode, Direction originNodeDirection) {
         this.addNextNodeSynced(originNodeDirection, originNode);
     }
 
     public void onConnectionAdded(ServerLevel serverLevel, BlockPos updatedPos, Direction updatedPosDirection) {
-        NetworkNode<T> nextNode = this.network.findNextNode(null, serverLevel, this.pos, updatedPosDirection);
+        NetworkNodeImpl<T> nextNode = this.network.findNextNode(null, serverLevel, this.pos, updatedPosDirection);
         if (nextNode != null && !nextNode.isDead()) {
             this.addNextNodeSynced(updatedPosDirection, nextNode);
         }
     }
 
     public void onConnectionRemoved(ServerLevel serverLevel, BlockPos updatedPos, Direction updatedPosDirection) {
-        NetworkNode<T> nextNode = this.network.findNextNode(null, serverLevel, this.pos, updatedPosDirection);
+        NetworkNodeImpl<T> nextNode = this.network.findNextNode(null, serverLevel, this.pos, updatedPosDirection);
         if (nextNode != null) {
             this.removeNextNodeSynced(updatedPosDirection);
         }
     }
 
-    public void addNext(Direction direction, NetworkNode<?> node) {
-        this.next.put(direction, (NetworkNode<T>) node);
+    public void addNext(Direction direction, NetworkNodeImpl<?> node) {
+        this.next.put(direction, (NetworkNodeImpl<T>) node);
     }
 
     public void setDead(boolean dead) {
         this.dead = dead;
     }
 
-    public void setInteractorConnection(Direction interactorConnection) {
-        this.interactorConnection = Optional.ofNullable(interactorConnection);
+    public void addInteractorConnection(Direction interactorConnection) {
+        this.interactorConnection.add(interactorConnection);
     }
 
-    public Map<Direction, NetworkNode<T>> getNext() {
+    public Map<Direction, NetworkNodeImpl<T>> getNext() {
         return next;
     }
 
@@ -119,7 +121,7 @@ public class NetworkNode<T> {
         return interactorConnection != null ? 1 : 0;
     }
 
-    public Transporting<T> getTransporting() {
+    public TransportingImpl<T> getTransporting() {
         return transporting;
     }
 
@@ -131,8 +133,8 @@ public class NetworkNode<T> {
         return dead;
     }
 
-    public Direction getInteractorConnection() {
-        return interactorConnection.orElse(null);
+    public Set<Direction> getInteractorConnections() {
+        return this.interactorConnection;
     }
 
     public List<NetworkRoute<T>> getCachesReferencingThis(ServerLevel serverLevel) {
@@ -151,7 +153,7 @@ public class NetworkNode<T> {
     // FIXME: This does not work at all, it always returns an empty map
     private Map<Direction, BlockPos> getNextAsPos() {
         if (next != null) {
-            Map<Direction, NetworkNode<T>> snapshot = new HashMap<>(next);
+            Map<Direction, NetworkNodeImpl<T>> snapshot = new HashMap<>(next);
             return snapshot.entrySet().stream()
                     .filter(e -> e.getValue() != null)
                     .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), e.getValue().getPos()))
@@ -162,7 +164,7 @@ public class NetworkNode<T> {
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof NetworkNode<?> that)) return false;
+        if (!(o instanceof NetworkNodeImpl<?> that)) return false;
         return dead == that.dead && Objects.equals(network, that.network) && Objects.equals(pos, that.pos) && Objects.equals(next, that.next) && Objects.equals(uninitializedNext, that.uninitializedNext) && Objects.equals(transporting, that.transporting) && interactorConnection == that.interactorConnection;
     }
 
@@ -171,32 +173,32 @@ public class NetworkNode<T> {
         return Objects.hash(network, pos, transporting, dead, interactorConnection);
     }
 
-    public static <T> Codec<NetworkNode<T>> codec(TransportNetwork<T> network) {
+    public static <T> Codec<NetworkNodeImpl<T>> codec(TransportNetworkImpl<T> network) {
         return RecordCodecBuilder.create(inst -> inst.group(
-                TransportNetwork.CODEC.fieldOf("network").forGetter(NetworkNode::getNetwork),
-                BlockPos.CODEC.fieldOf("pos").forGetter(NetworkNode::getPos),
-                Codec.unboundedMap(StringRepresentable.fromEnum(Direction::values), BlockPos.CODEC).fieldOf("next").forGetter(NetworkNode::getNextAsPos),
-                Transporting.codec(network.codec()).fieldOf("transporting").forGetter(NetworkNode::getTransporting),
-                Codec.BOOL.fieldOf("dead").forGetter(NetworkNode::isDead),
-                Direction.CODEC.optionalFieldOf("interactor").forGetter(node -> node.interactorConnection)
-        ).apply(inst, NetworkNode::new));
+                TransportNetwork.CODEC.fieldOf("network").forGetter(NetworkNodeImpl::getNetwork),
+                BlockPos.CODEC.fieldOf("pos").forGetter(NetworkNodeImpl::getPos),
+                Codec.unboundedMap(StringRepresentable.fromEnum(Direction::values), BlockPos.CODEC).fieldOf("next").forGetter(NetworkNodeImpl::getNextAsPos),
+                TransportingImpl.codec(network.codec()).fieldOf("transporting").forGetter(NetworkNodeImpl::getTransporting),
+                Codec.BOOL.fieldOf("dead").forGetter(NetworkNodeImpl::isDead),
+                Direction.CODEC.listOf().fieldOf("interactor").forGetter(node -> List.copyOf(node.interactorConnection))
+        ).apply(inst, NetworkNodeImpl::new));
     }
 
-    public static <T> StreamCodec<RegistryFriendlyByteBuf, NetworkNode<T>> streamCodec(TransportNetwork<T> network) {
+    public static <T> StreamCodec<RegistryFriendlyByteBuf, NetworkNodeImpl<T>> streamCodec(TransportNetworkImpl<T> network) {
         return StreamCodec.composite(
-                TransportNetwork.STREAM_CODEC,
-                NetworkNode::getNetwork,
+                TransportNetworkImpl.STREAM_CODEC,
+                NetworkNodeImpl::getNetwork,
                 BlockPos.STREAM_CODEC,
-                NetworkNode::getPos,
+                NetworkNodeImpl::getPos,
                 ByteBufCodecs.map(HashMap::new, Direction.STREAM_CODEC, BlockPos.STREAM_CODEC),
-                NetworkNode::getNextAsPos,
-                Transporting.streamCodec(network.streamCodec()),
-                NetworkNode::getTransporting,
+                NetworkNodeImpl::getNextAsPos,
+                TransportingImpl.streamCodec(network.streamCodec()),
+                NetworkNodeImpl::getTransporting,
                 ByteBufCodecs.BOOL,
-                NetworkNode::isDead,
-                ByteBufCodecs.optional(Direction.STREAM_CODEC),
+                NetworkNodeImpl::isDead,
+                ByteBufCodecs.collection(HashSet::new, Direction.STREAM_CODEC),
                 node -> node.interactorConnection,
-                NetworkNode::new
+                NetworkNodeImpl::new
         );
     }
 

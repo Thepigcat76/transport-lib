@@ -2,9 +2,9 @@ package com.thepigcat.transportlib.networking;
 
 
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.transportation.NetworkNode;
-import com.thepigcat.transportlib.api.transportation.TransportNetwork;
-import com.thepigcat.transportlib.client.transportation.ClientNodes;
+import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.client.ClientNodes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -16,13 +16,13 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import java.util.HashMap;
 import java.util.Map;
 
-public record SyncNetworkNodePayload<T>(TransportNetwork<T> network, HashMap<BlockPos, NetworkNode<T>> nodes) implements CustomPacketPayload {
-    public static <T> SyncNetworkNodePayload<T> untyped(TransportNetwork<?> network, HashMap<BlockPos, NetworkNode<T>> nodes) {
-        return new SyncNetworkNodePayload<>((TransportNetwork<T>) network, nodes);
+public record SyncNetworkNodePayload<T>(TransportNetworkImpl<T> network, HashMap<BlockPos, NetworkNodeImpl<T>> nodes) implements CustomPacketPayload {
+    public static <T> SyncNetworkNodePayload<T> untyped(TransportNetworkImpl<?> network, HashMap<BlockPos, NetworkNodeImpl<T>> nodes) {
+        return new SyncNetworkNodePayload<>((TransportNetworkImpl<T>) network, nodes);
     }
 
-    public static <T> SyncNetworkNodePayload<T> untyped(TransportNetwork<?> network, Map<BlockPos, NetworkNode<T>> nodes) {
-        return new SyncNetworkNodePayload<>((TransportNetwork<T>) network, new HashMap<>(nodes));
+    public static <T> SyncNetworkNodePayload<T> untyped(TransportNetworkImpl<?> network, Map<BlockPos, NetworkNodeImpl<T>> nodes) {
+        return new SyncNetworkNodePayload<>((TransportNetworkImpl<T>) network, new HashMap<>(nodes));
     }
 
     @Override
@@ -39,16 +39,16 @@ public record SyncNetworkNodePayload<T>(TransportNetwork<T> network, HashMap<Blo
         });
     }
 
-    public static <T> Type<SyncNetworkNodePayload<T>> type(TransportNetwork<?> network) {
+    public static <T> Type<SyncNetworkNodePayload<T>> type(TransportNetworkImpl<?> network) {
         ResourceLocation key = TransportLib.NETWORK_REGISTRY.getKey(network);
         return new Type<>(ResourceLocation.fromNamespaceAndPath(key.getNamespace(), "sync_%s_nodes".formatted(key.getPath())));
     }
 
-    public static <T> StreamCodec<RegistryFriendlyByteBuf, SyncNetworkNodePayload<T>> streamCodec(TransportNetwork<?> network) {
+    public static <T> StreamCodec<RegistryFriendlyByteBuf, SyncNetworkNodePayload<T>> streamCodec(TransportNetworkImpl<?> network) {
         return StreamCodec.composite(
-                TransportNetwork.STREAM_CODEC,
+                TransportNetworkImpl.STREAM_CODEC,
                 SyncNetworkNodePayload::network,
-                ByteBufCodecs.map(HashMap::new, BlockPos.STREAM_CODEC, NetworkNode.streamCodec((TransportNetwork<T>) network)),
+                ByteBufCodecs.map(HashMap::new, BlockPos.STREAM_CODEC, NetworkNodeImpl.streamCodec((TransportNetworkImpl<T>) network)),
                 SyncNetworkNodePayload::nodes,
                 SyncNetworkNodePayload::untyped
         );

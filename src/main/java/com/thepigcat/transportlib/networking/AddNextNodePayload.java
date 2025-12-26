@@ -1,9 +1,9 @@
 package com.thepigcat.transportlib.networking;
 
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.transportation.NetworkNode;
-import com.thepigcat.transportlib.api.transportation.TransportNetwork;
-import com.thepigcat.transportlib.client.transportation.ClientNodes;
+import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.client.ClientNodes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -14,11 +14,11 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.HashMap;
 
-public record AddNextNodePayload(TransportNetwork<?> network, BlockPos nodePos, Direction direction,
+public record AddNextNodePayload(TransportNetworkImpl<?> network, BlockPos nodePos, Direction direction,
                                  BlockPos nextPos) implements CustomPacketPayload {
     public static final Type<AddNextNodePayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TransportLib.MODID, "add_next_node"));
     public static final StreamCodec<RegistryFriendlyByteBuf, AddNextNodePayload> STREAM_CODEC = StreamCodec.composite(
-            TransportNetwork.STREAM_CODEC,
+            TransportNetworkImpl.STREAM_CODEC,
             AddNextNodePayload::network,
             BlockPos.STREAM_CODEC,
             AddNextNodePayload::nodePos,
@@ -36,7 +36,7 @@ public record AddNextNodePayload(TransportNetwork<?> network, BlockPos nodePos, 
 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
-            NetworkNode<?> networkNode = ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).get(nextPos);
+            NetworkNodeImpl<?> networkNode = ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).get(nextPos);
             ClientNodes.NODES.get(network).get(nodePos).addNext(direction, networkNode);
         }).exceptionally(err -> {
             TransportLib.LOGGER.error("Failed to handle AddNextNodePayload");
