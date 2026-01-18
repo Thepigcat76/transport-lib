@@ -5,6 +5,7 @@ import com.mojang.serialization.DataResult;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.thepigcat.transportlib.api.TransportNetwork;
 import com.thepigcat.transportlib.api.Transporting;
+import com.thepigcat.transportlib.api.cache.NetworkRoute;
 import com.thepigcat.transportlib.networking.SetNodeValuePayload;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
@@ -20,9 +21,19 @@ import org.jetbrains.annotations.Nullable;
 public class TransportingImpl<T> implements Transporting<T> {
     private final TransportNetwork<T> network;
     private @Nullable T value;
+    private NetworkRoute<T> route;
 
     public TransportingImpl(TransportNetwork<T> network) {
         this.network = network;
+    }
+
+    public void setRoute(NetworkRoute<T> route) {
+        this.route = route;
+    }
+
+    @Override
+    public NetworkRoute<T> getRoute() {
+        return this.route;
     }
 
     @Override
@@ -33,7 +44,7 @@ public class TransportingImpl<T> implements Transporting<T> {
     @Override
     public void trySyncValue(BlockPos pos) {
         if (this.network.isSynced()) {
-            DataResult<Tag> result = this.network.codec().encodeStart(NbtOps.INSTANCE, this.getValue());
+            DataResult<Tag> result = this.network.getTransportingHandler().valueCodec().encodeStart(NbtOps.INSTANCE, this.getValue());
             if (result.isSuccess()) {
                 PacketDistributor.sendToAllPlayers(new SetNodeValuePayload(result.getOrThrow(), pos));
             }
@@ -70,7 +81,7 @@ public class TransportingImpl<T> implements Transporting<T> {
         ).apply(inst, TransportingImpl::fromValue));
     }
 
-    public static <T> StreamCodec<RegistryFriendlyByteBuf, TransportingImpl<T>> streamCodec(StreamCodec<ByteBuf, T> codec) {
+    public static <T> StreamCodec<? super RegistryFriendlyByteBuf, TransportingImpl<T>> streamCodec(StreamCodec<? super RegistryFriendlyByteBuf, T> codec) {
         return StreamCodec.composite(
                 TransportNetwork.STREAM_CODEC,
                 TransportingImpl::getNetwork,
@@ -79,5 +90,4 @@ public class TransportingImpl<T> implements Transporting<T> {
                 TransportingImpl::fromValue
         );
     }
-
 }

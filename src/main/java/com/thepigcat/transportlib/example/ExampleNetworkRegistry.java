@@ -1,8 +1,7 @@
 package com.thepigcat.transportlib.example;
 
-import com.mojang.serialization.Codec;
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.impl.NetworkNodeImpl;
 import com.thepigcat.transportlib.api.TransferSpeed;
 import com.thepigcat.transportlib.api.TransportNetwork;
 import com.thepigcat.transportlib.impl.TransportNetworkImpl;
@@ -14,7 +13,7 @@ public final class ExampleNetworkRegistry {
     public static final DeferredRegister<TransportNetwork<?>> NETWORKS = DeferredRegister.create(TransportLib.NETWORK_REGISTRY, TransportLib.MODID);
 
     public static final DeferredHolder<TransportNetwork<?>, TransportNetworkImpl<Integer>> MANA_NETWORK = NETWORKS.register("mana",
-            () -> TransportNetworkImpl.builder(NetworkNodeImpl::new, Codec.INT, ManaTransportingHandler.INSTANCE)
+            () -> TransportNetworkImpl.builder(ManaTransportingHandler.INSTANCE)
                     .synced(ByteBufCodecs.INT)
                     .lossPerBlock((level, node) -> 1f)
                     .transferSpeed(TransferSpeed::instant)

@@ -1,6 +1,7 @@
 package com.thepigcat.transportlib.networking;
 
 import com.thepigcat.transportlib.TransportLib;
+import com.thepigcat.transportlib.api.TransportNetwork;
 import com.thepigcat.transportlib.impl.TransportNetworkImpl;
 import com.thepigcat.transportlib.client.ClientNodes;
 import net.minecraft.core.BlockPos;
@@ -12,14 +13,19 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.HashMap;
 
-public record RemoveNetworkNodePayload<T>(TransportNetworkImpl<T> network, BlockPos pos) implements CustomPacketPayload {
-    private static <T> RemoveNetworkNodePayload<T> untyped(TransportNetworkImpl<?> network, BlockPos pos) {
-        return new RemoveNetworkNodePayload<>((TransportNetworkImpl<T>) network, pos);
-    }
+public record RemoveNetworkNodePayload(TransportNetwork<?> network, BlockPos pos) implements CustomPacketPayload {
+    public static final Type<RemoveNetworkNodePayload> TYPE = new Type<>(TransportLib.rl("remove_network_node"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, RemoveNetworkNodePayload> STREAM_CODEC = StreamCodec.composite(
+            TransportNetwork.STREAM_CODEC,
+            RemoveNetworkNodePayload::network,
+            BlockPos.STREAM_CODEC,
+            RemoveNetworkNodePayload::pos,
+            RemoveNetworkNodePayload::new
+    );
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
-        return type(network);
+        return TYPE;
     }
 
     public void handle(IPayloadContext context) {
@@ -29,21 +35,6 @@ public record RemoveNetworkNodePayload<T>(TransportNetworkImpl<T> network, Block
             TransportLib.LOGGER.error("Failed to handle remove network node payload", err);
             return null;
         });
-    }
-
-    public static <T> Type<RemoveNetworkNodePayload<T>> type(TransportNetworkImpl<?> network) {
-        ResourceLocation key = TransportLib.NETWORK_REGISTRY.getKey(network);
-        return new Type<>(ResourceLocation.fromNamespaceAndPath(key.getNamespace(), "remove_%s_node".formatted(key.getPath())));
-    }
-
-    public static <T> StreamCodec<RegistryFriendlyByteBuf, RemoveNetworkNodePayload<T>> streamCodec(TransportNetworkImpl<?> network) {
-        return StreamCodec.composite(
-                TransportNetworkImpl.STREAM_CODEC,
-                RemoveNetworkNodePayload::network,
-                BlockPos.STREAM_CODEC,
-                RemoveNetworkNodePayload::pos,
-                RemoveNetworkNodePayload::untyped
-        );
     }
 
 }

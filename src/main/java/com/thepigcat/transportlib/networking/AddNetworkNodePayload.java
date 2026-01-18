@@ -1,56 +1,57 @@
 package com.thepigcat.transportlib.networking;
 
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.api.NetworkNode;
+import com.thepigcat.transportlib.impl.NetworkNodeImpl;
+import com.thepigcat.transportlib.api.TransportNetwork;
 import com.thepigcat.transportlib.impl.TransportNetworkImpl;
 import com.thepigcat.transportlib.client.ClientNodes;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
+import java.util.Map;
 
-public record AddNetworkNodePayload<T>(TransportNetworkImpl<T> network, BlockPos pos,
-                                       NetworkNodeImpl<T> node) implements CustomPacketPayload {
-    private static <T> AddNetworkNodePayload<T> untyped(TransportNetworkImpl<?> network, BlockPos pos, NetworkNodeImpl<?> tNetworkNode) {
-        return new AddNetworkNodePayload<>((TransportNetworkImpl<T>) network, pos, (NetworkNodeImpl<T>) tNetworkNode);
+public record AddNetworkNodePayload(TransportNetwork<?> network, BlockPos pos,
+                                    Tag encodedNode) implements CustomPacketPayload {
+    public static final Type<AddNetworkNodePayload> TYPE = new Type<>(TransportLib.rl("add_network_node"));
+    public static final StreamCodec<? super RegistryFriendlyByteBuf, AddNetworkNodePayload> STREAM_CODEC = StreamCodec.composite(
+            TransportNetworkImpl.STREAM_CODEC,
+            AddNetworkNodePayload::network,
+            BlockPos.STREAM_CODEC,
+            AddNetworkNodePayload::pos,
+            ByteBufCodecs.TAG,
+            AddNetworkNodePayload::encodedNode,
+            AddNetworkNodePayload::new
+    );
+
+    public static <T> AddNetworkNodePayload encodeNode(TransportNetwork<T> network, BlockPos pos, NetworkNodeImpl<T> node) {
+        return new AddNetworkNodePayload(network, pos, NetworkNode.CODEC.encodeStart(NbtOps.INSTANCE, node).getOrThrow());
     }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return type(network);
+    public @NotNull Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
-            if (node.uninitialized()) {
-                node.initialize(ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()));
+            NetworkNode<?> node = NetworkNode.CODEC.decode(NbtOps.INSTANCE, this.encodedNode()).getOrThrow().getFirst();
+            if (node.isUninitialized()) {
+                node.initialize((Map) ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()));
             }
             ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).put(pos, node);
         }).exceptionally(err -> {
             TransportLib.LOGGER.error("Failed to handle add network node payload", err);
             return null;
         });
-    }
-
-    public static <T> Type<AddNetworkNodePayload<T>> type(TransportNetworkImpl<?> network) {
-        ResourceLocation key = TransportLib.NETWORK_REGISTRY.getKey(network);
-        return new Type<>(ResourceLocation.fromNamespaceAndPath(key.getNamespace(), "add_%s_node".formatted(key.getPath())));
-    }
-
-    public static <T> StreamCodec<RegistryFriendlyByteBuf, AddNetworkNodePayload<T>> streamCodec(TransportNetworkImpl<?> network) {
-        return StreamCodec.composite(
-                TransportNetworkImpl.STREAM_CODEC,
-                AddNetworkNodePayload::network,
-                BlockPos.STREAM_CODEC,
-                AddNetworkNodePayload::pos,
-                NetworkNodeImpl.streamCodec((TransportNetworkImpl<T>) network),
-                AddNetworkNodePayload::node,
-                AddNetworkNodePayload::untyped
-        );
     }
 
 }

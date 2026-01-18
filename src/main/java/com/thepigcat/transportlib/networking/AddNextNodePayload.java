@@ -1,7 +1,8 @@
 package com.thepigcat.transportlib.networking;
 
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.api.NetworkNode;
+import com.thepigcat.transportlib.api.TransportNetwork;
 import com.thepigcat.transportlib.impl.TransportNetworkImpl;
 import com.thepigcat.transportlib.client.ClientNodes;
 import net.minecraft.core.BlockPos;
@@ -14,7 +15,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.HashMap;
 
-public record AddNextNodePayload(TransportNetworkImpl<?> network, BlockPos nodePos, Direction direction,
+public record AddNextNodePayload(TransportNetwork<?> network, BlockPos nodePos, Direction direction,
                                  BlockPos nextPos) implements CustomPacketPayload {
     public static final Type<AddNextNodePayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TransportLib.MODID, "add_next_node"));
     public static final StreamCodec<RegistryFriendlyByteBuf, AddNextNodePayload> STREAM_CODEC = StreamCodec.composite(
@@ -36,8 +37,8 @@ public record AddNextNodePayload(TransportNetworkImpl<?> network, BlockPos nodeP
 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
-            NetworkNodeImpl<?> networkNode = ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).get(nextPos);
-            ClientNodes.NODES.get(network).get(nodePos).addNext(direction, networkNode);
+            NetworkNode<?> networkNode = ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).get(nextPos);
+            ClientNodes.NODES.get(network).get(nodePos).addNextNode(direction, (NetworkNode) networkNode, false);
         }).exceptionally(err -> {
             TransportLib.LOGGER.error("Failed to handle AddNextNodePayload");
             return null;

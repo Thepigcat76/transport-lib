@@ -1,7 +1,12 @@
 package com.thepigcat.transportlib.api;
 
+import com.mojang.serialization.Codec;
+import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
@@ -54,6 +59,14 @@ public interface TransportingHandler<T> {
     @Contract(pure = true)
     T remove(T value, T toRemove);
 
+    @Contract(pure = true)
+    Codec<T> valueCodec();
+
+    @Contract(pure = true)
+    default StreamCodec<? super RegistryFriendlyByteBuf, T> valueStreamCodec() {
+        return ByteBufCodecs.fromCodec(this.valueCodec());
+    }
+
     // TODO: Look into ways of caching interactors through block cap caches...
 
     /**
@@ -66,4 +79,6 @@ public interface TransportingHandler<T> {
      * @return the remainder that the interactor was not able to receive, return {@link TransportingHandler#defaultValue()} if the entire {@code value} was received
      */
     T receive(ServerLevel level, BlockPos interactorPos, Direction direction, T value);
+
+    Transporting<T> createTransporting(TransportNetwork<T> network);
 }

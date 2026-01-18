@@ -4,9 +4,9 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.api.NetworkNode;
+import com.thepigcat.transportlib.impl.NetworkNodeImpl;
 import com.thepigcat.transportlib.api.TransportNetwork;
-import com.thepigcat.transportlib.impl.TransportNetworkImpl;
 import com.thepigcat.transportlib.client.ClientNodes;
 import com.thepigcat.transportlib.client.TLRenderTypes;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -18,7 +18,6 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 
 import java.util.Collections;
-import java.util.Map;
 
 public final class TransportNetworkRenderer {
     public static NetworkNodeImpl<?> selectedNode;
@@ -30,7 +29,7 @@ public final class TransportNetworkRenderer {
 
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
             for (TransportNetwork<?> network : TransportLib.NETWORK_REGISTRY) {
-                for (NetworkNodeImpl<?> node : ClientNodes.NODES.getOrDefault(network, Collections.emptyMap()).values()) {
+                for (NetworkNode<?> node : ClientNodes.NODES.getOrDefault(network, Collections.emptyMap()).values()) {
                     render(node, poseStack, bufferSource, cameraPos);
                 }
 
@@ -65,7 +64,7 @@ public final class TransportNetworkRenderer {
         RenderSystem.enableCull();
     }
 
-    private static void render(NetworkNodeImpl<?> node, PoseStack poseStack, MultiBufferSource bufferSource, Vec3 cameraPos) {
+    private static void render(NetworkNode<?> node, PoseStack poseStack, MultiBufferSource bufferSource, Vec3 cameraPos) {
         RenderSystem.disableDepthTest();    // Don't test depth
         RenderSystem.depthMask(false); // Don't write to depth buffer
         RenderSystem.disableCull();
@@ -83,38 +82,44 @@ public final class TransportNetworkRenderer {
             } else if (node.isDead()) {
                 r = 255;
                 g = 0;
-            } else if (!node.getInteractorConnections().isEmpty()) {
+            } else if (node.hasInteractorConnections()) {
                 r = 255;
                 g = 0;
                 b = 255;
             }
 
-            if (node.getInteractorConnections().isEmpty()) {
+            if (!node.hasInteractorConnections()) {
                 renderCube(consumer, poseStack.last().pose(), r, g, b, 70);
             } else {
-                for (Direction connection : node.getInteractorConnections()) {
-                    renderLine(poseStack, connection, consumer, r, g, b, 70);
+                for (Direction connection : Direction.values()) {
+                    if (node.hasInteractorConnection(connection)) {
+                        renderLine(poseStack, connection, consumer, r, g, b, 70);
+                    }
                 }
             }
 
             VertexConsumer consumer2 = bufferSource.getBuffer(TLRenderTypes.TEST_RENDER_TYPE);
-            if (node.getNext() != null) {
-                for (Direction direction : node.getNext().keySet()) {
-                    poseStack.pushPose();
-                    {
-                        renderLine(poseStack, direction, consumer2, 255, 0, 0, 200);
+            if (node.hasNextNodes()) {
+                for (Direction direction : Direction.values()) {
+                    NetworkNode<?> nextNode = node.getNextNode(direction);
+                    if (nextNode != null) {
+                        poseStack.pushPose();
+                        {
+                            renderLine(poseStack, direction, consumer2, 255, 0, 0, 200);
+                        }
+                        poseStack.popPose();
                     }
-                    poseStack.popPose();
                 }
             }
         }
         poseStack.popPose();
 
         if (node == selectedNode) {
-            if (node.getNext() != null) {
-                for (Map.Entry<Direction, ? extends NetworkNodeImpl<?>> entry : node.getNext().entrySet()) {
-                    if (entry.getValue() != null) {
-                        BlockPos pos = entry.getValue().getPos();
+            if (node.hasNextNodes()) {
+                for (Direction direction : Direction.values()) {
+                    NetworkNode<?> nextNode = node.getNextNode(direction);
+                    if (nextNode != null) {
+                        BlockPos pos = nextNode.getPos();
                         poseStack.pushPose();
                         {
                             poseStack.translate((double) pos.getX() - cameraPos.x(), (double) pos.getY() - cameraPos.y(), (double) pos.getZ() - cameraPos.z());
@@ -127,19 +132,19 @@ public final class TransportNetworkRenderer {
         }
 
         int i = 0;
-        if (node.getNext() != null) {
-            for (Map.Entry<Direction, ? extends NetworkNodeImpl<?>> entry : node.getNext().entrySet()) {
-                Direction direction = entry.getKey();
-                poseStack.pushPose();
-                {
-                    poseStack.translate(0.5, 0.5, 0.5);
-                    if (entry.getValue() != null) {
-                        BlockPos pos = entry.getValue().getPos();
+        if (node.hasNextNodes()) {
+            for (Direction direction : Direction.values()) {
+                NetworkNode<?> nextNode = node.getNextNode(direction);
+                if (nextNode != null) {
+                    poseStack.pushPose();
+                    {
+                        poseStack.translate(0.5, 0.5, 0.5);
+                        BlockPos pos = nextNode.getPos();
                         DebugRenderer.renderFloatingText(poseStack, bufferSource, String.format("%s: %d, %d, %d", direction.toString(), pos.getX(), pos.getY(), pos.getZ()), node.getPos().getX(), node.getPos().getY() + (3f - i / 2f), node.getPos().getZ(), -1);
                     }
+                    poseStack.popPose();
+                    i++;
                 }
-                poseStack.popPose();
-                i++;
             }
         }
 

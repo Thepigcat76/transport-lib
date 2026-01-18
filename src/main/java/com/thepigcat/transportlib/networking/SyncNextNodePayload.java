@@ -1,7 +1,8 @@
 package com.thepigcat.transportlib.networking;
 
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.thepigcat.transportlib.api.NetworkNode;
+import com.thepigcat.transportlib.api.TransportNetwork;
 import com.thepigcat.transportlib.impl.TransportNetworkImpl;
 import com.thepigcat.transportlib.client.ClientNodes;
 import net.minecraft.core.BlockPos;
@@ -13,10 +14,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.Map;
 
-public record SyncNextNodePayload(TransportNetworkImpl<?> network) implements CustomPacketPayload {
+public record SyncNextNodePayload(TransportNetwork<?> network) implements CustomPacketPayload {
     public static final Type<SyncNextNodePayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(TransportLib.MODID, "sync_next_nodes"));
     public static final StreamCodec<RegistryFriendlyByteBuf, SyncNextNodePayload> STREAM_CODEC = StreamCodec.composite(
-            TransportNetworkImpl.STREAM_CODEC,
+            TransportNetwork.STREAM_CODEC,
             SyncNextNodePayload::network,
             SyncNextNodePayload::new
     );
@@ -28,10 +29,10 @@ public record SyncNextNodePayload(TransportNetworkImpl<?> network) implements Cu
 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
-            Map<BlockPos, NetworkNodeImpl<?>> nodes = ClientNodes.NODES.get(network);
-            for (NetworkNodeImpl<?> node : nodes.values()) {
-                if (node.uninitialized()) {
-                    node.initialize(nodes);
+            Map<BlockPos, NetworkNode<?>> nodes = ClientNodes.NODES.get(network);
+            for (NetworkNode<?> node : nodes.values()) {
+                if (node.isUninitialized()) {
+                    node.initialize((Map) nodes);
                 }
             }
         }).exceptionally(err -> {

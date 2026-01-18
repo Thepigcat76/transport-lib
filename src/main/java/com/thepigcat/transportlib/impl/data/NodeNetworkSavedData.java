@@ -2,8 +2,8 @@ package com.thepigcat.transportlib.impl.data;
 
 import com.mojang.datafixers.util.Pair;
 import com.thepigcat.transportlib.TransportLib;
-import com.thepigcat.transportlib.api.NetworkNodeImpl;
-import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.api.NetworkNode;
+import com.thepigcat.transportlib.api.TransportNetwork;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
@@ -17,36 +17,36 @@ import java.util.*;
 
 public class NodeNetworkSavedData extends SavedData {
     private static final SavedData.Factory<NodeNetworkSavedData> FACTORY = new Factory<>(NodeNetworkSavedData::new, NodeNetworkSavedData::load);
-    private final Map<TransportNetworkImpl<?>, NodeNetworkData<?>> data;
+    private final Map<TransportNetwork<?>, NodeNetworkData<?>> data;
 
-    public NodeNetworkSavedData(Map<TransportNetworkImpl<?>, NodeNetworkData<?>> data) {
+    public NodeNetworkSavedData(Map<TransportNetwork<?>, NodeNetworkData<?>> data) {
         this.data = data;
     }
 
     public NodeNetworkSavedData() {
-        this(new HashMap<>());
+        this(new LinkedHashMap<>());
     }
 
-    public Map<TransportNetworkImpl<?>, NodeNetworkData<?>> getData() {
+    public Map<TransportNetwork<?>, NodeNetworkData<?>> getData() {
         return data;
     }
 
     public static NodeNetworkSavedData getNetworkData(ServerLevel serverLevel) {
-        return serverLevel.getDataStorage().computeIfAbsent(FACTORY, TransportLib.rl("node_networks").toString());
+        return serverLevel.getDataStorage().computeIfAbsent(FACTORY, TransportLib.rl("node_networks").toString().replace(':', '_'));
     }
 
     private static NodeNetworkSavedData load(CompoundTag tag, HolderLookup.Provider lookup) {
         CompoundTag nbt = tag.getCompound("node_network");
-        Map<TransportNetworkImpl<?>, NodeNetworkData<?>> data = new HashMap<>();
+        Map<TransportNetwork<?>, NodeNetworkData<?>> data = new HashMap<>();
         for (String key : nbt.getAllKeys()) {
-            TransportNetworkImpl<?> network = TransportLib.NETWORK_REGISTRY.get(ResourceLocation.parse(key));
+            TransportNetwork<?> network = TransportLib.NETWORK_REGISTRY.get(ResourceLocation.parse(key));
             NodeNetworkData<?> networkData = decodeData(network, nbt.get(key));
             data.put(network, networkData);
         }
-        for (Map.Entry<TransportNetworkImpl<?>, NodeNetworkData<?>> entry : data.entrySet()) {
-            for (NetworkNodeImpl<?> node : entry.getValue().nodes().values()) {
-                if (node.uninitialized()) {
-                    node.initialize(data.getOrDefault(entry.getKey(), NodeNetworkData.empty()).nodes());
+        for (Map.Entry<TransportNetwork<?>, NodeNetworkData<?>> entry : data.entrySet()) {
+            for (NetworkNode<?> node : entry.getValue().nodes().values()) {
+                if (node.isUninitialized()) {
+                    node.initialize((Map) data.getOrDefault(entry.getKey(), NodeNetworkData.empty()).nodes());
                 }
             }
         }
@@ -57,7 +57,7 @@ public class NodeNetworkSavedData extends SavedData {
     public @NotNull CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         CompoundTag nbt = new CompoundTag();
 
-        for (Map.Entry<TransportNetworkImpl<?>, NodeNetworkData<?>> entry : this.data.entrySet()) {
+        for (Map.Entry<TransportNetwork<?>, NodeNetworkData<?>> entry : this.data.entrySet()) {
             Tag tag1 = encodeData(entry.getKey(), entry.getValue());
             if (tag1 != null) {
                 nbt.put(TransportLib.NETWORK_REGISTRY.getKey(entry.getKey()).toString(), tag1);
@@ -68,13 +68,13 @@ public class NodeNetworkSavedData extends SavedData {
         return tag;
     }
 
-    private static <T> NodeNetworkData<T> decodeData(TransportNetworkImpl<?> key, Tag tag) {
-        TransportNetworkImpl<T> network = (TransportNetworkImpl<T>) key;
+    private static <T> NodeNetworkData<T> decodeData(TransportNetwork<?> key, Tag tag) {
+        TransportNetwork<T> network = (TransportNetwork<T>) key;
         return NodeNetworkData.codec(network).decode(NbtOps.INSTANCE, tag).resultOrPartial(err -> TransportLib.LOGGER.error("Failed to decode node network data: {}", err)).map(Pair::getFirst).orElse(null);
     }
 
-    private static <T> Tag encodeData(TransportNetworkImpl<?> key, NodeNetworkData<?> value) {
-        TransportNetworkImpl<T> network = (TransportNetworkImpl<T>) key;
+    private static <T> Tag encodeData(TransportNetwork<?> key, NodeNetworkData<?> value) {
+        TransportNetwork<T> network = (TransportNetwork<T>) key;
         NodeNetworkData<T> data = (NodeNetworkData<T>) value;
         Optional<Tag> tag = NodeNetworkData.codec(network)
                 .encodeStart(NbtOps.INSTANCE, data)

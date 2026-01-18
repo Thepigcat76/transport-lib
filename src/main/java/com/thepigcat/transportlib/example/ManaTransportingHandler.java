@@ -1,6 +1,10 @@
 package com.thepigcat.transportlib.example;
 
+import com.mojang.serialization.Codec;
+import com.thepigcat.transportlib.api.TransportNetwork;
+import com.thepigcat.transportlib.api.Transporting;
 import com.thepigcat.transportlib.api.TransportingHandler;
+import com.thepigcat.transportlib.impl.TransportingImpl;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
@@ -48,6 +52,11 @@ public class ManaTransportingHandler implements TransportingHandler<Integer> {
     }
 
     @Override
+    public Codec<Integer> valueCodec() {
+        return Codec.INT;
+    }
+
+    @Override
     public Integer receive(ServerLevel level, BlockPos interactorPos, Direction direction, Integer value) {
         BlockEntity blockEntity = level.getBlockEntity(interactorPos);
 
@@ -56,6 +65,11 @@ public class ManaTransportingHandler implements TransportingHandler<Integer> {
             return this.defaultValue();
         }
         return value;
+    }
+
+    @Override
+    public Transporting<Integer> createTransporting(TransportNetwork<Integer> network) {
+        return new TransportingImpl<>(network);
     }
 
     private static List<Integer> splitNumberEvenly(int number, int parts) {

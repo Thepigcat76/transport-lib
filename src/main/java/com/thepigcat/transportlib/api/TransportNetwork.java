@@ -1,6 +1,7 @@
 package com.thepigcat.transportlib.api;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.thepigcat.transportlib.TransportLib;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -16,7 +17,11 @@ public interface TransportNetwork<T> {
     Codec<TransportNetwork<?>> CODEC = TransportLib.NETWORK_REGISTRY.byNameCodec();
     StreamCodec<? super RegistryFriendlyByteBuf, TransportNetwork<?>> STREAM_CODEC = ByteBufCodecs.INT.map(TransportLib.NETWORK_REGISTRY::byId, TransportLib.NETWORK_REGISTRY::getId);
 
-    NetworkNodeImpl<T> createNode(BlockPos pos);
+    NetworkNode<T> createNode(BlockPos pos);
+
+    MapCodec<? extends NetworkNode<?>> getNodeCodec();
+
+    Transporting<T> createTransporting();
 
     void addConnection(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1);
 
@@ -30,24 +35,28 @@ public interface TransportNetwork<T> {
 
     boolean checkForInteractorAt(ServerLevel serverLevel, BlockPos interactorPos, Direction direction);
 
-    void addNode(ServerLevel level, BlockPos pos, NetworkNodeImpl<T> node);
+    void addNode(ServerLevel level, BlockPos pos, NetworkNode<T> node);
 
     void addNodeAndUpdate(ServerLevel level, BlockPos pos, Direction[] connections, boolean dead, @Nullable BlockPos interactorPos, @Nullable Direction interactorConnection);
 
-    NetworkNodeImpl<T> removeNode(ServerLevel serverLevel, BlockPos pos);
+    NetworkNode<T> removeNode(ServerLevel serverLevel, BlockPos pos);
 
-    NetworkNodeImpl<T> removeNodeAndUpdate(ServerLevel serverLevel, BlockPos pos);
+    NetworkNode<T> removeNodeAndUpdate(ServerLevel serverLevel, BlockPos pos);
 
-    NetworkNodeImpl<T> getNodeAt(ServerLevel serverLevel, BlockPos pos);
+    NetworkNode<T> getNodeAt(ServerLevel serverLevel, BlockPos pos);
 
     boolean hasNodeAt(ServerLevel serverLevel, BlockPos pos);
 
     T transport(ServerLevel serverLevel, BlockPos pos, T value, Direction ...directions);
 
-    default @Nullable NetworkNodeImpl<T> findNextNode(@Nullable NetworkNodeImpl<T> selfNode, ServerLevel serverLevel, BlockPos pos, Direction direction) {
+    default @Nullable NetworkNode<T> findNextNode(@Nullable NetworkNode<T> selfNode, ServerLevel serverLevel, BlockPos pos, Direction direction) {
         return this.findNextNode(selfNode, serverLevel, pos, direction, Set.of());
     }
 
-    @Nullable NetworkNodeImpl<T> findNextNode(@Nullable NetworkNodeImpl<T> selfNode, ServerLevel serverLevel, BlockPos pos, Direction direction, Set<BlockPos> ignoredNodes);
+    @Nullable NetworkNode<T> findNextNode(@Nullable NetworkNode<T> selfNode, ServerLevel serverLevel, BlockPos pos, Direction direction, Set<BlockPos> ignoredNodes);
+
+    boolean isSynced();
+
+    TransportingHandler<T> getTransportingHandler();
 
 }

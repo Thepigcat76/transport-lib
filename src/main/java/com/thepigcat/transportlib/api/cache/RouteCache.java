@@ -12,14 +12,12 @@ import java.util.Map;
 import java.util.function.Function;
 
 public record RouteCache<T>(Map<BlockPos, List<NetworkRoute<T>>> routes) {
+    public static final Codec<RouteCache<?>> CODEC = RecordCodecBuilder.create(inst -> inst.group(
+            Codec.unboundedMap(Codec.STRING, NetworkRoute.CODEC.listOf()).fieldOf("routes").forGetter(cache -> (Map) TransportLibUtils.encodePosMap(cache.routes))
+    ).apply(inst, routes -> new RouteCache<>((Map) TransportLibUtils.decodePosMap(routes))));
+
     public RouteCache() {
         this(new HashMap<>());
-    }
-
-    public static <T> Codec<RouteCache<T>> codec(TransportNetworkImpl<T> network) {
-        return RecordCodecBuilder.create(inst -> inst.group(
-                Codec.unboundedMap(Codec.STRING, NetworkRoute.codec(network).listOf()).fieldOf("routes").forGetter(cache -> TransportLibUtils.encodePosMap(cache.routes))
-        ).apply(inst, routes -> new RouteCache<>(TransportLibUtils.decodePosMap(routes))));
     }
 
     public List<NetworkRoute<T>> computeIfAbsent(BlockPos key, Function<BlockPos, List<NetworkRoute<T>>> mappingFunction) {

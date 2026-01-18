@@ -1,10 +1,13 @@
 package com.thepigcat.transportlib;
 
 import com.mojang.logging.LogUtils;
-import com.thepigcat.transportlib.api.NetworkNodeImpl;
+import com.mojang.serialization.DataResult;
+import com.thepigcat.transportlib.api.NetworkNode;
 import com.thepigcat.transportlib.api.TransportNetwork;
-import com.thepigcat.transportlib.impl.TransportNetworkImpl;
 import com.thepigcat.transportlib.client.debug.TransportNetworkRenderer;
+import com.thepigcat.transportlib.impl.NetworkNodeImpl;
+import com.thepigcat.transportlib.impl.TransportNetworkImpl;
+import com.thepigcat.transportlib.impl.data.NodeNetworkData;
 import com.thepigcat.transportlib.impl.data.TLServerRouteCache;
 import com.thepigcat.transportlib.example.ExampleBlockEntityRegistry;
 import com.thepigcat.transportlib.example.ExampleBlockRegistry;
@@ -14,6 +17,8 @@ import com.thepigcat.transportlib.networking.*;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -33,6 +38,7 @@ import org.slf4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Mod(TransportLib.MODID)
 public final class TransportLib {
@@ -69,10 +75,10 @@ public final class TransportLib {
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(MODID);
+        registrar.playToClient(AddNetworkNodePayload.TYPE, AddNetworkNodePayload.STREAM_CODEC, AddNetworkNodePayload::handle);
         for (TransportNetwork<?> network : NETWORK_REGISTRY) {
-            registrar.playToClient(AddNetworkNodePayload.type(network), AddNetworkNodePayload.streamCodec(network), AddNetworkNodePayload::handle);
-            registrar.playToClient(RemoveNetworkNodePayload.type(network), RemoveNetworkNodePayload.streamCodec(network), RemoveNetworkNodePayload::handle);
-            registrar.playToClient(SyncNetworkNodePayload.type(network), SyncNetworkNodePayload.streamCodec(network), SyncNetworkNodePayload::handle);
+            registrar.playToClient(RemoveNetworkNodePayload.TYPE, RemoveNetworkNodePayload.STREAM_CODEC, RemoveNetworkNodePayload::handle);
+            registrar.playToClient(SyncNetworkNodePayload.TYPE, SyncNetworkNodePayload.STREAM_CODEC, SyncNetworkNodePayload::handle);
         }
 
         registrar.playToClient(AddNextNodePayload.TYPE, AddNextNodePayload.STREAM_CODEC, AddNextNodePayload::handle);
@@ -103,9 +109,12 @@ public final class TransportLib {
         TLServerRouteCache.CACHE.clear();
     }
 
-    private <T> void sendSyncPayload(TransportNetworkImpl<T> network, ServerPlayer serverPlayer) {
-        Map<BlockPos, NetworkNodeImpl<T>> serverNodes = network.getServerNodes(serverPlayer.serverLevel());
-        PacketDistributor.sendToPlayer(serverPlayer, new SyncNetworkNodePayload<>(network, new HashMap<>(serverNodes)));
+    private <T> void sendSyncPayload(TransportNetwork<T> network, ServerPlayer serverPlayer) {
+        Map<BlockPos, NetworkNode<T>> networkData = TransportNetworkImpl.getRawNetworkData(network, serverPlayer.serverLevel()).nodes();
+        Map<BlockPos, Tag> map = networkData.entrySet().stream()
+                .map(entry -> Map.entry(entry.getKey(), NetworkNode.CODEC.encodeStart(NbtOps.INSTANCE, entry.getValue()).getOrThrow()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        PacketDistributor.sendToPlayer(serverPlayer, new SyncNetworkNodePayload(network, new HashMap<>(map)));
         PacketDistributor.sendToPlayer(serverPlayer, new SyncNextNodePayload(network));
     }
 
