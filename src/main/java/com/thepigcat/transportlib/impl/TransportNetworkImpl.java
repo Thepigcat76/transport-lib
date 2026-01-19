@@ -1,7 +1,5 @@
 package com.thepigcat.transportlib.impl;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import com.thepigcat.transportlib.api.*;
 import com.thepigcat.transportlib.api.cache.NetworkRoute;
@@ -69,19 +67,19 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
     }
 
     @Override
-    public void addConnection(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1) {
+    public void connect(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1) {
         NetworkNode<T> node0 = this.findNextNode(null, serverLevel, pos, direction0);
         if (node0 != null && !node0.isDead()) {
-            node0.onConnectionAdded(serverLevel, pos, direction0.getOpposite());
+            node0.onConnect(serverLevel, pos, direction0.getOpposite());
         }
         NetworkNode<T> node1 = this.findNextNode(null, serverLevel, pos, direction1);
         if (node1 != null && !node1.isDead()) {
-            node1.onConnectionAdded(serverLevel, pos, direction1.getOpposite());
+            node1.onConnect(serverLevel, pos, direction1.getOpposite());
         }
     }
 
     @Override
-    public void removeConnection(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1) {
+    public void disconnect(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1) {
         this.removeConnectionInDir(serverLevel, pos, direction0);
         this.removeConnectionInDir(serverLevel, pos, direction1);
     }
@@ -107,14 +105,17 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
     }
 
     @Override
-    public void addNodeAndUpdate(ServerLevel level, BlockPos pos, Direction[] connections, boolean dead, @Nullable BlockPos interactorPos, @Nullable Direction interactorConnection) {
-        NetworkNode<T> node = this.createNode(pos);
+    public void addNode(NetworkNode<T> node, ServerLevel level, BlockPos pos, Direction[] connections, boolean dead) {
         node.setDead(dead);
-        node.addInteractorConnection(interactorConnection);
-        if (interactorPos != null) {
-            this.addInteractor(level, interactorPos);
+
+        for (Direction direction : Direction.values()) {
+            if (this.checkForInteractorAt(level, pos, direction)) {
+                node.addInteractorConnection(direction);
+                this.addInteractor(level, pos.relative(direction));
+            }
         }
-        this.addNode(level, pos, node);
+
+        this.addNodeSynced(level, pos, node);
 
         if (!dead) {
             for (Direction connection : connections) {
@@ -129,8 +130,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
         }
     }
 
-    @Override
-    public void addNode(ServerLevel level, BlockPos pos, NetworkNode<T> node) {
+    private void addNodeSynced(ServerLevel level, BlockPos pos, NetworkNode<T> node) {
         NodeNetworkSavedData networks = getNetworkData(level);
         getServerNodes(level).put(pos, node);
         if (this.isSynced()) {
@@ -142,8 +142,8 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
     }
 
     @Override
-    public NetworkNode<T> removeNodeAndUpdate(ServerLevel serverLevel, BlockPos pos) {
-        NetworkNode<T> node = this.removeNode(serverLevel, pos);
+    public NetworkNode<T> removeNode(ServerLevel serverLevel, BlockPos pos) {
+        NetworkNode<T> node = this.removeNodeSynced(serverLevel, pos);
 
         for (Direction direction : Direction.values()) {
             NetworkNode<T> node1 = node.getNextNode(direction);
@@ -168,8 +168,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
         return node;
     }
 
-    @Override
-    public @Nullable NetworkNode<T> removeNode(ServerLevel serverLevel, BlockPos pos) {
+    private @Nullable NetworkNode<T> removeNodeSynced(ServerLevel serverLevel, BlockPos pos) {
         NodeNetworkSavedData networks = getNetworkData(serverLevel);
         NetworkNode<T> removedNode = this.getServerNodes(serverLevel).remove(pos);
         networks.setDirty();
@@ -315,7 +314,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
     private void removeConnectionInDir(ServerLevel serverLevel, BlockPos pos, Direction direction) {
         NetworkNode<T> node1 = this.findNextNode(null, serverLevel, pos, direction);
         if (node1 != null) {
-            node1.onConnectionRemoved(serverLevel, pos, direction.getOpposite());
+            node1.onDisconnect(serverLevel, pos, direction.getOpposite());
             for (NetworkRoute<T> route : this.getCachesReferencingThis(node1, serverLevel)) {
                 route.setValid(false);
             }
@@ -442,7 +441,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
                 if (!interactorPos.equals(route.getOriginPos())) {
                     route.setInteractorDest(interactorPos);
                     route.setInteractorDirection(connection);
-                    cache.add(route);
+                    cache.add(route.copy());
                 }
             }
             //this.getTransportingHandler().receive(level, interactorPos, interactorConnection, split.getLast());

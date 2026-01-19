@@ -112,7 +112,7 @@ public class ManaPipeBlock extends Block {
     // Check for newly added blocks
     @Override
     public @NotNull BlockState updateShape(BlockState blockState, Direction facingDirection, BlockState facingBlockState, LevelAccessor level, BlockPos blockPos, BlockPos facingBlockPos) {
-        updatePipeBlock(blockState, facingDirection, level, blockPos, facingBlockPos);
+        updatePipeBlock(blockState, facingDirection, level, blockPos);
 
         int connectionIndex = facingDirection.ordinal();
         BlockEntity blockEntity = level.getBlockEntity(facingBlockPos);
@@ -169,12 +169,11 @@ public class ManaPipeBlock extends Block {
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
 
-        if (level instanceof ServerLevel serverLevel) {
+        if (level instanceof ServerLevel serverLevel/* && !state.is(oldState.getBlock())*/) {
             int connectionsAmount = 0;
             boolean[] connections = new boolean[6];
             Direction[] directions = new Direction[6];
             BlockPos interactor = null;
-            Direction interactorConnection = null;
 
             for (Direction dir : Direction.values()) {
                 boolean value = state.getValue(CONNECTION[dir.get3DDataValue()]);
@@ -184,7 +183,6 @@ public class ManaPipeBlock extends Block {
                     connectionsAmount++;
                     if (ExampleNetworkRegistry.MANA_NETWORK.get().checkForInteractorAt(serverLevel, pos, dir)) {
                         interactor = pos.relative(dir);
-                        interactorConnection = dir;
                     }
                 } else {
                     directions[dir.get3DDataValue()] = null;
@@ -196,7 +194,7 @@ public class ManaPipeBlock extends Block {
                     || (connections[2] && connections[3])
                     || (connections[4] && connections[5]))) || connectionsAmount == 0) {
                 if (ExampleNetworkRegistry.MANA_NETWORK.get().hasNodeAt(serverLevel, pos)) {
-                    ExampleNetworkRegistry.MANA_NETWORK.get().removeNodeAndUpdate(serverLevel, pos);
+                    ExampleNetworkRegistry.MANA_NETWORK.get().removeNode(serverLevel, pos);
                 }
 
                 Direction direction0 = null;
@@ -212,12 +210,12 @@ public class ManaPipeBlock extends Block {
                 }
 
                 if (interactor != null) {
-                    ExampleNetworkRegistry.MANA_NETWORK.get().addNodeAndUpdate(serverLevel, pos, directions, false, interactor, interactorConnection);
+                    ExampleNetworkRegistry.MANA_NETWORK.get().addNode(serverLevel, pos, directions, false);
                 } else if (direction0 != null && direction1 != null) {
-                    ExampleNetworkRegistry.MANA_NETWORK.get().addConnection(serverLevel, pos, direction0, direction1);
+                    ExampleNetworkRegistry.MANA_NETWORK.get().connect(serverLevel, pos, direction0, direction1);
                 }
             } else {
-                ExampleNetworkRegistry.MANA_NETWORK.get().addNodeAndUpdate(serverLevel, pos, directions, connectionsAmount == 1, interactor, interactorConnection);
+                ExampleNetworkRegistry.MANA_NETWORK.get().addNode(serverLevel, pos, directions, connectionsAmount == 1);
             }
 
         }
@@ -231,14 +229,14 @@ public class ManaPipeBlock extends Block {
         if (level instanceof ServerLevel serverLevel) {
             if (!state.is(newState.getBlock())) {
                 if (ExampleNetworkRegistry.MANA_NETWORK.get().hasNodeAt(serverLevel, pos)) {
-                    ExampleNetworkRegistry.MANA_NETWORK.get().removeNodeAndUpdate(serverLevel, pos);
+                    ExampleNetworkRegistry.MANA_NETWORK.get().removeNode(serverLevel, pos);
                 } else {
                     List<Direction> directions = getDirections(state);
                     if (directions.size() == 2) {
                         Direction direction0 = directions.getFirst();
                         Direction direction1 = directions.get(1);
                         if (direction0 == direction1.getOpposite()) {
-                            ExampleNetworkRegistry.MANA_NETWORK.get().removeConnection(serverLevel, pos, direction0, direction1);
+                            ExampleNetworkRegistry.MANA_NETWORK.get().disconnect(serverLevel, pos, direction0, direction1);
                         }
                     }
                 }
@@ -248,7 +246,7 @@ public class ManaPipeBlock extends Block {
 
     }
 
-    private static void updatePipeBlock(BlockState blockState, Direction facingDirection, LevelAccessor level, BlockPos blockPos, BlockPos facingBlockPos) {
+    private static void updatePipeBlock(BlockState blockState, Direction facingDirection, LevelAccessor level, BlockPos blockPos) {
         if (level instanceof ServerLevel serverLevel) {
             if (ExampleNetworkRegistry.MANA_NETWORK.get().checkForInteractorAt(serverLevel, blockPos, facingDirection)) {
                 int connectionsAmount = 0;
@@ -261,7 +259,9 @@ public class ManaPipeBlock extends Block {
                     }
                 }
 
-                ExampleNetworkRegistry.MANA_NETWORK.get().addNodeAndUpdate(serverLevel, blockPos, directions, connectionsAmount == 1, facingBlockPos, facingDirection);
+                ExampleNetworkRegistry.MANA_NETWORK.get().addNode(serverLevel, blockPos, directions, connectionsAmount == 1);
+            } else {
+                ExampleNetworkRegistry.MANA_NETWORK.get().removeInteractor(serverLevel, blockPos.relative(facingDirection));
             }
         }
     }

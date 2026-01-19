@@ -22,9 +22,9 @@ public interface NetworkNode<T> {
 
     List<Transporting<T>> getTransporting();
 
-    void onConnectionAdded(ServerLevel serverLevel, BlockPos pos, Direction direction);
+    void onConnect(ServerLevel serverLevel, BlockPos pos, Direction direction);
 
-    void onConnectionRemoved(ServerLevel serverLevel, BlockPos pos, Direction direction);
+    void onDisconnect(ServerLevel serverLevel, BlockPos pos, Direction direction);
 
     boolean isDead();
 

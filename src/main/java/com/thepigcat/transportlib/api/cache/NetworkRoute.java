@@ -14,7 +14,7 @@ public class NetworkRoute<T> {
             BlockPos.CODEC.fieldOf("interactor_dest").forGetter(NetworkRoute::getInteractorDest),
             Direction.CODEC.fieldOf("interactor_dir").forGetter(NetworkRoute::getInteractorDirection),
             Codec.INT.fieldOf("physical_distance").forGetter(NetworkRoute::getPhysicalDistance),
-            NetworkNode.CODEC.listOf().fieldOf("path").forGetter(route -> route.getPathAsList())
+            NetworkNode.CODEC.listOf().fieldOf("path").forGetter(NetworkRoute::getPathAsList)
     ).apply(inst, NetworkRoute::codecNew));
 
     private List<NetworkNode<?>> getPathAsList() {
@@ -27,6 +27,15 @@ public class NetworkRoute<T> {
     private Direction interactorDirection;
     private int physicalDistance;
     private boolean valid;
+
+    private NetworkRoute(BlockPos originPos, Set<NetworkNode<T>> path, BlockPos interactorDest, Direction interactorDirection, int physicalDistance, boolean valid) {
+        this.originPos = originPos;
+        this.path = path;
+        this.interactorDest = interactorDest;
+        this.interactorDirection = interactorDirection;
+        this.physicalDistance = physicalDistance;
+        this.valid = valid;
+    }
 
     public NetworkRoute(BlockPos originPos, Set<NetworkNode<T>> path) {
         this.originPos = originPos;
@@ -104,4 +113,7 @@ public class NetworkRoute<T> {
         return route;
     }
 
+    public NetworkRoute<T> copy() {
+        return new NetworkRoute<>(this.originPos, this.path, this.interactorDest, this.interactorDirection, this.physicalDistance, this.valid);
+    }
 }

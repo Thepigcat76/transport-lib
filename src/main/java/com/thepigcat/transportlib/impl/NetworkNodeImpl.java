@@ -13,17 +13,10 @@ import com.thepigcat.transportlib.networking.AddNextNodePayload;
 import com.thepigcat.transportlib.networking.RemoveNextNodePayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.ExtraCodecs;
 import net.minecraft.util.StringRepresentable;
-import net.neoforged.neoforge.common.util.NeoForgeExtraCodecs;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
@@ -39,12 +32,6 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
             Codec.BOOL.fieldOf("dead").forGetter(NetworkNodeImpl::isDead),
             Direction.CODEC.listOf().fieldOf("interactor").forGetter(node -> List.copyOf(node.interactorConnections))
     ).apply(inst, NetworkNodeImpl::codecNew));
-
-    private static <T> List<Tag> encodeTransporting(NetworkNodeImpl<?> node) {
-        Codec<T> codec = (Codec<T>) node.network.getTransportingHandler().valueCodec();
-        List<Transporting<T>> transportings = (List) node.getTransporting();
-        return transportings.stream().map(t -> codec.encodeStart(NbtOps.INSTANCE, t.getValue()).getOrThrow()).toList();
-    }
 
     private final TransportNetwork<T> network;
     private final BlockPos pos;
@@ -71,11 +58,18 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
         this.interactorConnections = new HashSet<>(interactorConnections);
     }
 
+    private static List<Tag> encodeTransporting(NetworkNodeImpl<?> node) {
+        Codec<Object> codec = (Codec<Object>) node.network.getTransportingHandler().valueCodec();
+        List<? extends Transporting<?>> transportings = node.getTransporting();
+        return transportings.stream().map(t -> codec.encodeStart(NbtOps.INSTANCE, t.getValue()).getOrThrow()).toList();
+    }
+
     private static <T> NetworkNodeImpl<T> codecNew(TransportNetwork<?> network, BlockPos pos, Map<Direction, BlockPos> next, List<Tag> transporting, boolean dead, Collection<Direction> interactorConnections) {
-        List<Transporting<T>> list = transporting.stream().map(t -> {
-            TransportingHandler<T> transportingHandler = (TransportingHandler<T>) network.getTransportingHandler();
-            Transporting<T> transporting1 = transportingHandler.createTransporting((TransportNetwork<T>) network);
-            transporting1.setValue(transportingHandler.valueCodec().decode(NbtOps.INSTANCE, t).getOrThrow().getFirst());
+        List<Transporting<T>> list = transporting.stream().map(tag -> {
+            TransportNetwork<T> transportNetwork = (TransportNetwork<T>) network;
+            TransportingHandler<T> transportingHandler = transportNetwork.getTransportingHandler();
+            Transporting<T> transporting1 = transportingHandler.createTransporting(transportNetwork);
+            transporting1.setValue(transportingHandler.valueCodec().decode(NbtOps.INSTANCE, tag).getOrThrow().getFirst());
             return transporting1;
         }).toList();
         return new NetworkNodeImpl<>(network, pos, next, list, dead, interactorConnections);
@@ -116,19 +110,15 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
         }
     }
 
-    public void onNextNodeAdded(NetworkNodeImpl<T> originNode, Direction originNodeDirection) {
-        this.addNextNodeSynced(originNodeDirection, originNode);
-    }
-
     @Override
-    public void onConnectionAdded(ServerLevel serverLevel, BlockPos updatedPos, Direction updatedPosDirection) {
+    public void onConnect(ServerLevel serverLevel, BlockPos updatedPos, Direction updatedPosDirection) {
         NetworkNode<T> nextNode = this.network.findNextNode(null, serverLevel, this.pos, updatedPosDirection);
         if (nextNode != null && !nextNode.isDead()) {
             this.addNextNodeSynced(updatedPosDirection, nextNode);
         }
     }
 
-    public void onConnectionRemoved(ServerLevel serverLevel, BlockPos updatedPos, Direction updatedPosDirection) {
+    public void onDisconnect(ServerLevel serverLevel, BlockPos updatedPos, Direction updatedPosDirection) {
         NetworkNode<T> nextNode = this.network.findNextNode(null, serverLevel, this.pos, updatedPosDirection);
         if (nextNode != null) {
             this.removeNextNodeSynced(updatedPosDirection);
@@ -146,22 +136,26 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
 
     @Override
     public void onNextNodeAdded(NetworkNode<T> nextNode, Direction direction) {
-
+        this.addNextNodeSynced(direction, nextNode);
     }
 
     @Override
     public NetworkNode<T> removeNextNode(Direction direction, boolean sync) {
-        return null;
+        NetworkNode<T> node = this.next.remove(direction);
+        if (this.network.isSynced() && sync) {
+            PacketDistributor.sendToAllPlayers(new RemoveNextNodePayload(this.network, this.pos, direction));
+        }
+        return node;
     }
 
     @Override
     public NetworkNode<T> getNextNode(Direction direction) {
-        return null;
+        return this.next.get(direction);
     }
 
     @Override
     public boolean hasInteractorConnection(Direction direction) {
-        return false;
+        return this.interactorConnections.contains(direction);
     }
 
     @Override
@@ -184,7 +178,9 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
     }
 
     public void addInteractorConnection(Direction interactorConnection) {
-        this.interactorConnections.add(interactorConnection);
+        if (interactorConnection != null) {
+            this.interactorConnections.add(interactorConnection);
+        }
     }
 
     public Map<Direction, NetworkNode<T>> getNext() {
@@ -233,12 +229,13 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
 
     @Override
     public boolean equals(Object o) {
-        if (!(o instanceof NetworkNodeImpl<?> that)) return false;
-        return dead == that.dead && Objects.equals(network, that.network) && Objects.equals(pos, that.pos) && Objects.equals(next, that.next) && Objects.equals(uninitializedNext, that.uninitializedNext) && Objects.equals(transporting, that.transporting) && Objects.equals(interactorConnections, that.interactorConnections);
+        if (!(o instanceof NetworkNode<?> that)) return false;
+        return this.getPos().equals(that.getPos());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(network, pos, next, uninitializedNext, transporting, dead, interactorConnections);
+        return this.getPos().hashCode();
     }
+
 }

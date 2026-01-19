@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import com.mojang.serialization.DataResult;
 import com.thepigcat.transportlib.api.NetworkNode;
 import com.thepigcat.transportlib.api.TransportNetwork;
+import com.thepigcat.transportlib.client.ClientNodes;
 import com.thepigcat.transportlib.client.debug.TransportNetworkRenderer;
 import com.thepigcat.transportlib.impl.NetworkNodeImpl;
 import com.thepigcat.transportlib.impl.TransportNetworkImpl;
@@ -89,10 +90,12 @@ public final class TransportLib {
         registrar.playToClient(RemoveInteractorPayload.TYPE, RemoveInteractorPayload.STREAM_CODEC, RemoveInteractorPayload::handle);
         registrar.playToClient(SyncInteractorPayload.TYPE, SyncInteractorPayload.STREAM_CODEC, SyncInteractorPayload::handle);
         registrar.playToClient(SetNodeValuePayload.TYPE, SetNodeValuePayload.STREAM_CODEC, SetNodeValuePayload::handle);
+        registrar.playToClient(ClearClientCachePayload.TYPE, ClearClientCachePayload.STREAM_CODEC, ClearClientCachePayload::handle);
     }
 
     private void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+            PacketDistributor.sendToPlayer(serverPlayer, ClearClientCachePayload.INSTANCE);
             for (TransportNetwork<?> network : NETWORK_REGISTRY) {
                 if (network.isSynced()) {
                     sendSyncPayload(network, serverPlayer);

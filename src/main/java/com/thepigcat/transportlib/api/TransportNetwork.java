@@ -23,9 +23,9 @@ public interface TransportNetwork<T> {
 
     Transporting<T> createTransporting();
 
-    void addConnection(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1);
+    void connect(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1);
 
-    void removeConnection(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1);
+    void disconnect(ServerLevel serverLevel, BlockPos pos, Direction direction0, Direction direction1);
 
     void addInteractor(ServerLevel serverLevel, BlockPos interactorPos);
 
@@ -35,13 +35,13 @@ public interface TransportNetwork<T> {
 
     boolean checkForInteractorAt(ServerLevel serverLevel, BlockPos interactorPos, Direction direction);
 
-    void addNode(ServerLevel level, BlockPos pos, NetworkNode<T> node);
+    void addNode(NetworkNode<T> node, ServerLevel level, BlockPos pos, Direction[] connections, boolean dead);
 
-    void addNodeAndUpdate(ServerLevel level, BlockPos pos, Direction[] connections, boolean dead, @Nullable BlockPos interactorPos, @Nullable Direction interactorConnection);
+    default void addNode(ServerLevel level, BlockPos pos, Direction[] connections, boolean dead) {
+        this.addNode(this.createNode(pos), level, pos, connections, dead);
+    }
 
     NetworkNode<T> removeNode(ServerLevel serverLevel, BlockPos pos);
-
-    NetworkNode<T> removeNodeAndUpdate(ServerLevel serverLevel, BlockPos pos);
 
     NetworkNode<T> getNodeAt(ServerLevel serverLevel, BlockPos pos);
 
