@@ -26,6 +26,16 @@ public final class TLServerRouteCache {
                 .add(route);
     }
 
+    public static <T> void addAll(TransportNetworkImpl<T> network, ServerLevel level, BlockPos originPos, List<NetworkRoute<T>> routes) {
+        for (NetworkRoute<T> route : routes) {
+            add(network, level, originPos, route);
+        }
+    }
+
+    public static <T> void clear(TransportNetworkImpl<T> network, ServerLevel level, BlockPos originPos) {
+        getCache(network, level).routes().get(originPos).clear();
+    }
+
     public static <T> List<NetworkRoute<T>> getRoutes(TransportNetworkImpl<T> network, ServerLevel level, BlockPos originPos) {
         return getCache(network, level).computeIfAbsent(originPos, k -> new ArrayList<>());
     }

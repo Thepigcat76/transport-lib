@@ -15,7 +15,6 @@ import com.thepigcat.transportlib.utils.NetworkHelper;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.codec.StreamCodec;
@@ -28,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -37,7 +37,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
     private final TransportingHandler<T> transportingHandler;
     private final BiFunction<ServerLevel, NetworkNode<T>, Float> lossPerBlockFunction;
     private final Supplier<TransferSpeed> transferSpeedFunction;
-    private final TriPredicate<Level, BlockPos, Direction> interactorCheckFunction;
+    private final InteractorCheckFunction interactorCheckFunction;
     private final int maxConnectionDistance;
     private final StreamCodec<ByteBuf, T> streamCodec;
 
@@ -191,7 +191,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
 
     @Override
     public boolean checkForInteractorAt(ServerLevel serverLevel, BlockPos nodePos, Direction direction) {
-        return this.interactorCheckFunction.test(serverLevel, nodePos, direction);
+        return this.interactorCheckFunction.test(serverLevel, nodePos, nodePos.relative(direction), direction);
     }
 
     @Override
@@ -254,22 +254,18 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
             } else {
                 directions1 = directions;
             }
-            List<NetworkNode<T>> nodes = new ArrayList<>();
-            for (Direction direction : directions1) {
-                BlockPos relative = pos.relative(direction);
-                if (this.hasNodeAt(serverLevel, relative)) {
-                    nodes.add(this.getNodeAt(serverLevel, relative));
-                }
-            }
+            List<NetworkNode<T>> nodes = getNodesAroundPos(serverLevel, pos, directions1);
 
             List<NetworkRoute<T>> routes = getCacheRoutes(serverLevel, pos);
             if (routes.isEmpty()) {
-                routes = this.getRoutesForCache(serverLevel, pos, nodes);
+                routes = this.computeRoutesForCache(serverLevel, pos, nodes);
+                setCacheRoutes(serverLevel, pos, routes);
                 this.setServerNodesChanged(serverLevel);
             } else {
                 for (NetworkRoute<T> route : routes) {
                     if (!route.isValid()) {
-                        routes = this.getRoutesForCache(serverLevel, pos, nodes);
+                        routes = this.computeRoutesForCache(serverLevel, pos, nodes);
+                        setCacheRoutes(serverLevel, pos, routes);
                         this.setServerNodesChanged(serverLevel);
                         break;
                     }
@@ -308,6 +304,17 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
         return value;
     }
 
+    protected @NotNull List<NetworkNode<T>> getNodesAroundPos(ServerLevel serverLevel, BlockPos pos, Direction... directions1) {
+        List<NetworkNode<T>> nodes = new ArrayList<>();
+        for (Direction direction : directions1) {
+            BlockPos relative = pos.relative(direction);
+            if (this.hasNodeAt(serverLevel, relative)) {
+                nodes.add(this.getNodeAt(serverLevel, relative));
+            }
+        }
+        return nodes;
+    }
+
     public Set<BlockPos> getInteractors(ServerLevel serverLevel) {
         return getRawNetworkData(this, serverLevel).interactors();
     }
@@ -322,7 +329,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
         }
     }
 
-    private List<NetworkRoute<T>> getCachesReferencingThis(NetworkNode<T> node, ServerLevel serverLevel) {
+    protected List<NetworkRoute<T>> getCachesReferencingThis(NetworkNode<T> node, ServerLevel serverLevel) {
         List<NetworkRoute<T>> affectedRoutes = new ArrayList<>();
         Map<BlockPos, List<NetworkRoute<T>>> routes = this.getRouteCache(serverLevel).routes();
         for (List<NetworkRoute<T>> value : routes.values()) {
@@ -361,7 +368,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
         getNetworkData(serverLevel).setDirty();
     }
 
-    private @NotNull List<NetworkRoute<T>> getRoutesForCache(ServerLevel serverLevel, BlockPos pos, List<NetworkNode<T>> nodes) {
+    protected @NotNull List<NetworkRoute<T>> computeRoutesForCache(ServerLevel serverLevel, BlockPos pos, List<NetworkNode<T>> nodes) {
         List<NetworkRoute<T>> cache = new ArrayList<>();
         for (NetworkNode<T> node : nodes) {
             NetworkRoute<T> route = new NetworkRoute<>(pos, new HashSet<>());
@@ -370,7 +377,18 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
         return optimizeRoutes(cache);
     }
 
-    private List<NetworkRoute<T>> getCacheRoutes(ServerLevel serverLevel, BlockPos pos) {
+    protected void recomputeCachedRoutesForPos(ServerLevel serverLevel, BlockPos pos, Direction direction) {
+        List<NetworkRoute<T>> routes = this.computeRoutesForCache(serverLevel, pos, this.getNodesAroundPos(serverLevel, pos, direction));
+        this.setCacheRoutes(serverLevel, pos, routes);
+        this.setServerNodesChanged(serverLevel);
+    }
+
+    protected void setCacheRoutes(ServerLevel serverLevel, BlockPos pos, List<NetworkRoute<T>> routes) {
+        TLServerRouteCache.clear(this, serverLevel, pos);
+        TLServerRouteCache.addAll(this, serverLevel, pos, routes);
+    }
+
+    protected List<NetworkRoute<T>> getCacheRoutes(ServerLevel serverLevel, BlockPos pos) {
         return TLServerRouteCache.getRoutes(this, serverLevel, pos);
     }
 
@@ -378,7 +396,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
     // First we gather all unique interactors origin pos is connected to
     // Then we sort the routes by shortest physical distance
     // Next we loop through all the sorted routes until we have a route for every interactor
-    private List<NetworkRoute<T>> optimizeRoutes(List<NetworkRoute<T>> routes) {
+    protected List<NetworkRoute<T>> optimizeRoutes(List<NetworkRoute<T>> routes) {
         Set<BlockPos> uniqueInteractors = new HashSet<>();
 
         for (NetworkRoute<T> route : routes) {
@@ -411,7 +429,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
     // we might have to run some of the calculation work on the server after one another instead of running the entire calculation at once.
     // Since caches are saved, recalculating them should not be necessary. The only issue is that resource transfer would not be instant in larger nets
 
-    private void traverse(ServerLevel level, NetworkNode<T> node, NetworkRoute<T> route, List<NetworkRoute<T>> cache) {
+    protected void traverse(ServerLevel level, NetworkNode<T> node, NetworkRoute<T> route, List<NetworkRoute<T>> cache) {
         route.getPath().add(node);
 
         //T value = node.getTransporting().removeValue();
@@ -507,7 +525,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
         private final TransportingHandler<T> transportingHandler;
         private BiFunction<ServerLevel, NetworkNode<T>, Float> lossPerBlockFunction = (l, n) -> 0F;
         private Supplier<TransferSpeed> transferSpeedFunction = () -> TransferSpeed.speed(1);
-        private TriPredicate<Level, BlockPos, Direction> interactorCheckFunction = (l, p, d) -> false;
+        private InteractorCheckFunction interactorCheckFunction = (l, p0, p1, d) -> false;
         private int maxConnectionDistance = -1;
         private StreamCodec<ByteBuf, T> streamCodec = null;
 
@@ -531,9 +549,14 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
             return this;
         }
 
-        // FIXME: Highly sus, do we really want to provide the node pos instead of the interactor pos? or do we just wanna do a quad predicate and provide both
+        @Deprecated
         public Builder<T> interactorCheck(TriPredicate<Level, BlockPos, Direction> interactorCheckFunction) {
-            this.interactorCheckFunction = interactorCheckFunction;
+            this.interactorCheckFunction = (level, cablePos, interactorPos, direction) -> interactorCheckFunction.test(level, cablePos, direction);
+            return this;
+        }
+
+        public Builder<T> interactorCheck(InteractorCheckFunction function) {
+            this.interactorCheckFunction = function;
             return this;
         }
 
@@ -547,8 +570,12 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
             return this;
         }
 
+        public <N extends TransportNetworkImpl<T>> N build(Function<Builder<T>, N> constructor) {
+            return constructor.apply(this);
+        }
+
         public TransportNetworkImpl<T> build() {
-            return new TransportNetworkImpl<>(this);
+            return this.build(TransportNetworkImpl::new);
         }
     }
 }

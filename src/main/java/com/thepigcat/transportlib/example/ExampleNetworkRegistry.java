@@ -18,6 +18,6 @@ public final class ExampleNetworkRegistry {
                     .lossPerBlock((level, node) -> 1f)
                     .transferSpeed(TransferSpeed::instant)
                     // FIXME: Look at the builder for actual fixme (sus positioning)
-                    .interactorCheck(((level, pos, direction) -> level.getBlockEntity(pos.relative(direction)) instanceof ManaBatteryBlockEntity))
+                    .interactorCheck(((level, cablePos, interactorPos, direction) -> level.getBlockEntity(interactorPos) instanceof ManaBatteryBlockEntity))
                     .build());
 }
