@@ -77,10 +77,8 @@ public final class TransportLib {
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(MODID);
         registrar.playToClient(AddNetworkNodePayload.TYPE, AddNetworkNodePayload.STREAM_CODEC, AddNetworkNodePayload::handle);
-        for (TransportNetwork<?> network : NETWORK_REGISTRY) {
-            registrar.playToClient(RemoveNetworkNodePayload.TYPE, RemoveNetworkNodePayload.STREAM_CODEC, RemoveNetworkNodePayload::handle);
-            registrar.playToClient(SyncNetworkNodePayload.TYPE, SyncNetworkNodePayload.STREAM_CODEC, SyncNetworkNodePayload::handle);
-        }
+        registrar.playToClient(RemoveNetworkNodePayload.TYPE, RemoveNetworkNodePayload.STREAM_CODEC, RemoveNetworkNodePayload::handle);
+        registrar.playToClient(SyncNetworkNodePayload.TYPE, SyncNetworkNodePayload.STREAM_CODEC, SyncNetworkNodePayload::handle);
 
         registrar.playToClient(AddNextNodePayload.TYPE, AddNextNodePayload.STREAM_CODEC, AddNextNodePayload::handle);
         registrar.playToClient(RemoveNextNodePayload.TYPE, RemoveNextNodePayload.STREAM_CODEC, RemoveNextNodePayload::handle);

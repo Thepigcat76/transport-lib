@@ -11,6 +11,7 @@ import com.thepigcat.transportlib.networking.AddInteractorPayload;
 import com.thepigcat.transportlib.networking.AddNetworkNodePayload;
 import com.thepigcat.transportlib.networking.RemoveInteractorPayload;
 import com.thepigcat.transportlib.networking.RemoveNetworkNodePayload;
+import com.thepigcat.transportlib.utils.NetworkHelper;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -40,7 +41,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
     private final int maxConnectionDistance;
     private final StreamCodec<ByteBuf, T> streamCodec;
 
-    private TransportNetworkImpl(Builder<T> builder) {
+    protected TransportNetworkImpl(Builder<T> builder) {
         this.nodeFactory = builder.nodeFactory;
         this.nodeCodec = builder.nodeCodec;
         this.transportingHandler = builder.transportingHandler;
@@ -428,7 +429,7 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
         //int i = 0;
         for (NetworkNode<T> nextNode : nextNodes) {
             NetworkRoute<T> nextRoute = new NetworkRoute<>(route.getOriginPos(), new HashSet<>(route.getPath()));
-            int distance = Math.abs(vecEliminateZero(nextNode.getPos().subtract(node.getPos())));
+            int distance = Math.abs(NetworkHelper.vecEliminateZero(nextNode.getPos().subtract(node.getPos())));
             nextRoute.setPhysicalDistance(route.getPhysicalDistance() + distance);
             //nextNode.getTransporting().setValue(split.get(i));
             traverse(level, nextNode, nextRoute, cache);
@@ -447,13 +448,6 @@ public class TransportNetworkImpl<T> implements TransportNetwork<T> {
             //this.getTransportingHandler().receive(level, interactorPos, interactorConnection, split.getLast());
         }
 
-    }
-
-    private int vecEliminateZero(Vec3i vec) {
-        if (vec.getX() != 0) return vec.getX();
-        if (vec.getY() != 0) return vec.getY();
-        if (vec.getZ() != 0) return vec.getZ();
-        throw new IllegalStateException("Illegal nodes");
     }
 
     private static @NotNull NodeNetworkSavedData getNetworkData(ServerLevel serverLevel) {
