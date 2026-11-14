@@ -74,11 +74,12 @@ public interface TransportingHandler<T> {
      *
      * @param level         The level of the network
      * @param interactorPos the position of the interactor where the value should be sent
+     * @param simulate      Whether to actually receive the transported value
      * @param direction     the direction from which we are trying to insert send the value
      * @param value         the value that should be sent
      * @return the remainder that the interactor was not able to receive, return {@link TransportingHandler#defaultValue()} if the entire {@code value} was received
      */
-    T receive(ServerLevel level, BlockPos interactorPos, Direction direction, T value);
+    T receive(ServerLevel level, BlockPos interactorPos, boolean simulate, Direction direction, T value);
 
     Transporting<T> createTransporting(TransportNetwork<T> network);
 }

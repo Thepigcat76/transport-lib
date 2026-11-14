@@ -45,8 +45,8 @@ public final class TransportNetworkRenderer {
     }
 
     private static void renderInteractor(BlockPos interactorPos, PoseStack poseStack, MultiBufferSource bufferSource, Vec3 cameraPos) {
-        RenderSystem.disableDepthTest();    // Don't test depth
-        RenderSystem.depthMask(false); // Don't write to depth buffer
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
         RenderSystem.disableCull();
         VertexConsumer consumer = bufferSource.getBuffer(TLRenderTypes.TEST_RENDER_TYPE);
 
@@ -65,8 +65,8 @@ public final class TransportNetworkRenderer {
     }
 
     private static void render(NetworkNode<?> node, PoseStack poseStack, MultiBufferSource bufferSource, Vec3 cameraPos) {
-        RenderSystem.disableDepthTest();    // Don't test depth
-        RenderSystem.depthMask(false); // Don't write to depth buffer
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
         RenderSystem.disableCull();
         VertexConsumer consumer = bufferSource.getBuffer(TLRenderTypes.TEST_RENDER_TYPE);
 
@@ -212,7 +212,7 @@ public final class TransportNetworkRenderer {
     private static void renderLine(VertexConsumer consumer, Matrix4f matrix, int r, int g, int b, int a, Direction direction) {
         float x = 1f;
         float z = 1f;
-        float halfSize = 0.025f; // half of thickness
+        float halfSize = 0.025f;
         float yBottom = -0.25f;
         float yTop = 0.5f;
 
@@ -251,9 +251,5 @@ public final class TransportNetworkRenderer {
         consumer.addVertex(matrix, x + halfSize, yBottom, z + halfSize).setColor(r, g, b, a).setNormal(0, -1, 0);
         consumer.addVertex(matrix, x + halfSize, yBottom, z - halfSize).setColor(r, g, b, a).setNormal(0, -1, 0);
         consumer.addVertex(matrix, x - halfSize, yBottom, z - halfSize).setColor(r, g, b, a).setNormal(0, -1, 0);
-
-//        consumer.addVertex(matrix, 1, 0, 1).setColor(r, g, b, a).setNormal(1, 0, 0);
-//        consumer.addVertex(matrix, 1, 0.5f, 1).setColor(r, g, b, a).setNormal(1, 0, 0);
-
     }
 }

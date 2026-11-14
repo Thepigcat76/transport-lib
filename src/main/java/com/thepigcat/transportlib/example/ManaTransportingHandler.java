@@ -57,11 +57,13 @@ public class ManaTransportingHandler implements TransportingHandler<Integer> {
     }
 
     @Override
-    public Integer receive(ServerLevel level, BlockPos interactorPos, Direction direction, Integer value) {
+    public Integer receive(ServerLevel level, BlockPos interactorPos, boolean simulate, Direction direction, Integer value) {
         BlockEntity blockEntity = level.getBlockEntity(interactorPos);
 
         if (blockEntity instanceof ManaBatteryBlockEntity manaBlockEntity && manaBlockEntity.getBlockState().getValue(ManaBatteryBlock.BATTERY_TYPE) == ManaBatteryBlock.BatteryType.INPUT  ) {
-            manaBlockEntity.fillMana(value);
+            if (!simulate) {
+                manaBlockEntity.fillMana(value);
+            }
             return this.defaultValue();
         }
         return value;
@@ -81,12 +83,10 @@ public class ManaTransportingHandler implements TransportingHandler<Integer> {
         int remainder = number % parts;
         int quotient = number / parts;
 
-        // Distribute the remainder evenly among the first 'remainder' parts
         for (int i = 0; i < remainder; i++) {
             result.set(i, quotient + 1);
         }
 
-        // Distribute the remaining parts
         for (int i = remainder; i < parts; i++) {
             result.set(i, quotient);
         }

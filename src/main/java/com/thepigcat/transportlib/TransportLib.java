@@ -22,12 +22,15 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -38,6 +41,7 @@ import net.neoforged.neoforge.registries.RegistryBuilder;
 import org.slf4j.Logger;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -61,8 +65,11 @@ public final class TransportLib {
         }
 
         NeoForge.EVENT_BUS.addListener(this::onPlayerJoin);
+        NeoForge.EVENT_BUS.addListener(this::onPlayerChangedDimension);
+        NeoForge.EVENT_BUS.addListener(this::onPlayerRespawn);
         NeoForge.EVENT_BUS.addListener(this::onServerStarted);
         NeoForge.EVENT_BUS.addListener(this::onServerStopped);
+        NeoForge.EVENT_BUS.addListener(this::onLevelUnload);
 
     }
 
@@ -92,7 +99,20 @@ public final class TransportLib {
     }
 
     private void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+        syncNetworks(event.getEntity());
+    }
+
+    // The client only knows the networks of the level it is in
+    private void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
+        syncNetworks(event.getEntity());
+    }
+
+    private void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        syncNetworks(event.getEntity());
+    }
+
+    private void syncNetworks(Player player) {
+        if (player instanceof ServerPlayer serverPlayer) {
             PacketDistributor.sendToPlayer(serverPlayer, ClearClientCachePayload.INSTANCE);
             for (TransportNetwork<?> network : NETWORK_REGISTRY) {
                 if (network.isSynced()) {
@@ -103,20 +123,28 @@ public final class TransportLib {
     }
 
     private void onServerStarted(ServerStartedEvent event) {
-        TLServerRouteCache.CACHE.clear();
+        TLServerRouteCache.clearAll();
     }
 
     private void onServerStopped(ServerStoppedEvent event) {
-        TLServerRouteCache.CACHE.clear();
+        TLServerRouteCache.clearAll();
+    }
+
+    private void onLevelUnload(LevelEvent.Unload event) {
+        if (event.getLevel() instanceof ServerLevel serverLevel) {
+            TLServerRouteCache.clear(serverLevel);
+        }
     }
 
     private <T> void sendSyncPayload(TransportNetwork<T> network, ServerPlayer serverPlayer) {
-        Map<BlockPos, NetworkNode<T>> networkData = TransportNetworkImpl.getRawNetworkData(network, serverPlayer.serverLevel()).nodes();
+        NodeNetworkData<T> data = TransportNetworkImpl.getRawNetworkData(network, serverPlayer.serverLevel());
+        Map<BlockPos, NetworkNode<T>> networkData = data.nodes();
         Map<BlockPos, Tag> map = networkData.entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), NetworkNode.CODEC.encodeStart(NbtOps.INSTANCE, entry.getValue()).getOrThrow()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         PacketDistributor.sendToPlayer(serverPlayer, new SyncNetworkNodePayload(network, new HashMap<>(map)));
         PacketDistributor.sendToPlayer(serverPlayer, new SyncNextNodePayload(network));
+        PacketDistributor.sendToPlayer(serverPlayer, new SyncInteractorPayload(network, new HashSet<>(data.interactors())));
     }
 
 }

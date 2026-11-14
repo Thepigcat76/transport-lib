@@ -71,7 +71,7 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
             Transporting<T> transporting1 = transportingHandler.createTransporting(transportNetwork);
             transporting1.setValue(transportingHandler.valueCodec().decode(NbtOps.INSTANCE, tag).getOrThrow().getFirst());
             return transporting1;
-        }).toList();
+        }).collect(Collectors.toCollection(ArrayList::new));
         return new NetworkNodeImpl<>(network, pos, next, list, dead, interactorConnections);
     }
 
@@ -79,7 +79,11 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
     public void initialize(Map<BlockPos, NetworkNode<T>> nodes) {
         this.next = new ConcurrentHashMap<>();
         for (Map.Entry<Direction, BlockPos> entry : this.uninitializedNext.entrySet()) {
-            this.next.put(entry.getKey(), nodes.get(entry.getValue()));
+            // The map does not allow null values, the next node can be missing if the data is incomplete
+            NetworkNode<T> nextNode = nodes.get(entry.getValue());
+            if (nextNode != null) {
+                this.next.put(entry.getKey(), nextNode);
+            }
         }
         this.uninitializedNext = null;
     }
@@ -183,6 +187,11 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
         }
     }
 
+    @Override
+    public void removeInteractorConnection(Direction interactorConnection) {
+        this.interactorConnections.remove(interactorConnection);
+    }
+
     public Map<Direction, NetworkNode<T>> getNext() {
         return next;
     }
@@ -192,7 +201,7 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
     }
 
     public int getInteractorConnectionsAmount() {
-        return interactorConnections != null ? 1 : 0;
+        return this.interactorConnections.size();
     }
 
     @Override
@@ -208,8 +217,11 @@ public class NetworkNodeImpl<T> implements NetworkNode<T> {
         return this.interactorConnections;
     }
 
-    // FIXME: This does not work at all, it always returns an empty map
     private Map<Direction, BlockPos> getNextAsPos() {
+        // Nodes that were decoded but not initialized yet still need to encode their connections
+        if (next == null && uninitializedNext != null) {
+            return uninitializedNext;
+        }
         if (next != null) {
             Map<Direction, NetworkNode<T>> snapshot = new HashMap<>(next);
             return snapshot.entrySet().stream()

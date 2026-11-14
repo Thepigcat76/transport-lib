@@ -40,7 +40,7 @@ public record RemoveNextNodePayload(TransportNetwork<?> network, BlockPos nodePo
                 networkNode.removeNextNode(direction, false);
             }
         }).exceptionally(err -> {
-            TransportLib.LOGGER.error("Failed to handle RemoveNextNodePayload");
+            TransportLib.LOGGER.error("Failed to handle RemoveNextNodePayload", err);
             return null;
         });
     }

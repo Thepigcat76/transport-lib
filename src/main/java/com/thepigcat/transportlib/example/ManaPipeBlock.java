@@ -109,7 +109,6 @@ public class ManaPipeBlock extends Block {
         return shapes[i];
     }
 
-    // Check for newly added blocks
     @Override
     public @NotNull BlockState updateShape(BlockState blockState, Direction facingDirection, BlockState facingBlockState, LevelAccessor level, BlockPos blockPos, BlockPos facingBlockPos) {
         updatePipeBlock(blockState, facingDirection, level, blockPos);

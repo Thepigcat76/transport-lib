@@ -32,6 +32,8 @@ public interface NetworkNode<T> {
 
     void addInteractorConnection(Direction interactorConnection);
 
+    void removeInteractorConnection(Direction interactorConnection);
+
     void addNextNode(Direction direction, NetworkNode<T> nextNode, boolean sync);
 
     void onNextNodeAdded(NetworkNode<T> nextNode, Direction direction);

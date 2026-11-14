@@ -39,7 +39,8 @@ public record SyncNetworkNodePayload(TransportNetwork<?> network, HashMap<BlockP
             Map<BlockPos, NetworkNode<?>> nodes = this.nodes.entrySet().stream()
                     .map(entry -> Map.entry(entry.getKey(), NetworkNode.CODEC.decode(NbtOps.INSTANCE, entry.getValue()).getOrThrow().getFirst()))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            ClientNodes.NODES.computeIfAbsent(network, k -> new HashMap<>()).putAll(nodes);
+            // A full sync replaces everything the client knew about this network
+            ClientNodes.NODES.put(network, new HashMap<>(nodes));
         }).exceptionally(err -> {
             TransportLib.LOGGER.error("Failed to handle sync network nodes payload", err);
             return null;

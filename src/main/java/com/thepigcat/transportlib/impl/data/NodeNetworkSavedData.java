@@ -39,9 +39,15 @@ public class NodeNetworkSavedData extends SavedData {
         CompoundTag nbt = tag.getCompound("node_network");
         Map<TransportNetwork<?>, NodeNetworkData<?>> data = new HashMap<>();
         for (String key : nbt.getAllKeys()) {
-            TransportNetwork<?> network = TransportLib.NETWORK_REGISTRY.get(ResourceLocation.parse(key));
+            TransportNetwork<?> network = TransportLib.NETWORK_REGISTRY.get(ResourceLocation.tryParse(key));
+            if (network == null) {
+                TransportLib.LOGGER.error("Skipping node network data for unknown network: {}", key);
+                continue;
+            }
             NodeNetworkData<?> networkData = decodeData(network, nbt.get(key));
-            data.put(network, networkData);
+            if (networkData != null) {
+                data.put(network, networkData);
+            }
         }
         for (Map.Entry<TransportNetwork<?>, NodeNetworkData<?>> entry : data.entrySet()) {
             for (NetworkNode<?> node : entry.getValue().nodes().values()) {

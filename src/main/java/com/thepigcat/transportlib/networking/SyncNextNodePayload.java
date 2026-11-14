@@ -30,13 +30,14 @@ public record SyncNextNodePayload(TransportNetwork<?> network) implements Custom
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
             Map<BlockPos, NetworkNode<?>> nodes = ClientNodes.NODES.get(network);
+            if (nodes == null) return;
             for (NetworkNode<?> node : nodes.values()) {
                 if (node.isUninitialized()) {
                     node.initialize((Map) nodes);
                 }
             }
         }).exceptionally(err -> {
-            TransportLib.LOGGER.error("Failed to handle RemoveNextNodePayload");
+            TransportLib.LOGGER.error("Failed to handle SyncNextNodePayload", err);
             return null;
         });
     }

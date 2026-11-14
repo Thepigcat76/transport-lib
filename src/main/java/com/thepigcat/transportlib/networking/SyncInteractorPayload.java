@@ -34,7 +34,7 @@ public record SyncInteractorPayload(TransportNetwork<?> network, Set<BlockPos> i
         context.enqueueWork(() -> {
             ClientNodes.INTERACTORS.put(network, interactors);
         }).exceptionally(err -> {
-            TransportLib.LOGGER.error("Failed to handle SyncInteractor payload");
+            TransportLib.LOGGER.error("Failed to handle SyncInteractor payload", err);
             return null;
         });
     }

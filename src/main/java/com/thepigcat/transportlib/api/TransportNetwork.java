@@ -6,8 +6,8 @@ import com.thepigcat.transportlib.TransportLib;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,7 +15,7 @@ import java.util.Set;
 
 public interface TransportNetwork<T> {
     Codec<TransportNetwork<?>> CODEC = TransportLib.NETWORK_REGISTRY.byNameCodec();
-    StreamCodec<? super RegistryFriendlyByteBuf, TransportNetwork<?>> STREAM_CODEC = ByteBufCodecs.INT.map(TransportLib.NETWORK_REGISTRY::byId, TransportLib.NETWORK_REGISTRY::getId);
+    StreamCodec<? super RegistryFriendlyByteBuf, TransportNetwork<?>> STREAM_CODEC = ResourceLocation.STREAM_CODEC.map(TransportLib.NETWORK_REGISTRY::get, TransportLib.NETWORK_REGISTRY::getKey);
 
     NetworkNode<T> createNode(BlockPos pos);
 
@@ -41,13 +41,17 @@ public interface TransportNetwork<T> {
         this.addNode(this.createNode(pos), level, pos, connections, dead);
     }
 
-    NetworkNode<T> removeNode(ServerLevel serverLevel, BlockPos pos);
+    @Nullable NetworkNode<T> removeNode(ServerLevel serverLevel, BlockPos pos);
 
-    NetworkNode<T> getNodeAt(ServerLevel serverLevel, BlockPos pos);
+    @Nullable NetworkNode<T> getNodeAt(ServerLevel serverLevel, BlockPos pos);
 
     boolean hasNodeAt(ServerLevel serverLevel, BlockPos pos);
 
-    T transport(ServerLevel serverLevel, BlockPos pos, T value, Direction ...directions);
+    T transport(ServerLevel serverLevel, BlockPos pos, T value, boolean simulate, Direction ...directions);
+
+    default T transport(ServerLevel serverLevel, BlockPos pos, T value, Direction ...directions) {
+        return this.transport(serverLevel, pos, value, false, directions);
+    }
 
     default @Nullable NetworkNode<T> findNextNode(@Nullable NetworkNode<T> selfNode, ServerLevel serverLevel, BlockPos pos, Direction direction) {
         return this.findNextNode(selfNode, serverLevel, pos, direction, Set.of());

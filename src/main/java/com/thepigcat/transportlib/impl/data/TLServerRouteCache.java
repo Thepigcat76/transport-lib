@@ -2,42 +2,27 @@ package com.thepigcat.transportlib.impl.data;
 
 
 import com.thepigcat.transportlib.impl.TransportNetworkImpl;
-import com.thepigcat.transportlib.api.cache.NetworkRoute;
 import com.thepigcat.transportlib.api.cache.RouteCache;
-import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-// SERVER ONLY
+// SERVER ONLY - Lazily loaded when route is first needed
 public final class TLServerRouteCache {
-    // Possibly we might have to save the base data for calculating caches on server startup to reduce lag
-    public static final Map<TransportNetworkImpl<?>, Map<ResourceKey<Level>, RouteCache<?>>> CACHE = new HashMap<>();
+    private static final Map<TransportNetworkImpl<?>, Map<ResourceKey<Level>, RouteCache<?>>> CACHE = new HashMap<>();
 
-    public static <T> void add(TransportNetworkImpl<T> network, ServerLevel level, BlockPos originPos, NetworkRoute<T> route) {
-        getCache(network, level)
-                .routes().computeIfAbsent(originPos, k -> new ArrayList<>())
-                .add(route);
+    public static void clearAll() {
+        CACHE.clear();
     }
 
-    public static <T> void addAll(TransportNetworkImpl<T> network, ServerLevel level, BlockPos originPos, List<NetworkRoute<T>> routes) {
-        for (NetworkRoute<T> route : routes) {
-            add(network, level, originPos, route);
+    public static void clear(ServerLevel level) {
+        for (Map<ResourceKey<Level>, RouteCache<?>> caches : CACHE.values()) {
+            caches.remove(level.dimension());
         }
-    }
-
-    public static <T> void clear(TransportNetworkImpl<T> network, ServerLevel level, BlockPos originPos) {
-        getCache(network, level).routes().get(originPos).clear();
-    }
-
-    public static <T> List<NetworkRoute<T>> getRoutes(TransportNetworkImpl<T> network, ServerLevel level, BlockPos originPos) {
-        return getCache(network, level).computeIfAbsent(originPos, k -> new ArrayList<>());
     }
 
     @SuppressWarnings("unchecked")
